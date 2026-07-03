@@ -396,7 +396,7 @@ export class GenerationPanel {
                 <div style="width: ${Math.round(j.progress * 100)}%; height: 100%; background: var(--accent-gradient); transition: width 0.3s ease;"></div>
               </div>
             ` : ''}
-            ${j.error ? `<div style="color: #ff5252; font-size: 0.8rem; margin-top: 8px; word-break: break-all; background: rgba(255,82,82,0.1); padding: 8px 12px; border-radius: 4px; border-left: 3px solid #ff5252;">${j.error}</div>` : ''}
+            ${j.error ? `<div class="selectable-error" style="color: #ff5252; font-size: 0.8rem; margin-top: 8px; word-break: break-all; background: rgba(255,82,82,0.1); padding: 8px 12px; border-radius: 4px; border-left: 3px solid #ff5252; user-select: text !important; -webkit-user-select: text !important; cursor: text;" title="Click and drag to highlight/copy error">${j.error}</div>` : ''}
           </div>
         `).join('') : '<div style="font-size: 0.9rem; color: var(--text-muted); text-align: center; padding: 40px;">Queue is empty.</div>';
 

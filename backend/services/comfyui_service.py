@@ -277,7 +277,7 @@ def _generic_recipe(key: str, wf: WorkflowInfo) -> Recipe:
     elif wf.load_audio:
         expects, in_patch = "audio", _patch(wf, "load_audio", "primary_input")
     else:
-        raise RuntimeError(f"No recognizable input node found in '{key}'")
+        expects, in_patch = "none", None
 
     if wf.save_video:
         outputs, ext, out_patch = "video", ".mp4",  _patch(wf, "save_video", "prefix")
@@ -286,19 +286,19 @@ def _generic_recipe(key: str, wf: WorkflowInfo) -> Recipe:
     elif wf.save_audio:
         outputs, ext, out_patch = "audio", ".flac", _patch(wf, "save_audio", "prefix")
     else:
-        raise RuntimeError(f"No recognizable output node found in '{key}'")
+        outputs, ext, out_patch = "none", "", None
 
-    expected_args = 1
+    expected_args = 1 if in_patch is not None else 0
     patches = _compact([in_patch, out_patch]) + _seed_patch(wf)
 
     if wf.load_audio and expects != "audio":
         patches.append(_patch(wf, "load_audio", "audio_input"))
-        expects += ",audio"
-        expected_args = 2
+        expects = "audio" if expects == "none" else f"{expects},audio"
+        expected_args += 1
     if wf.load_mask:
         patches.append(_patch(wf, "load_mask", "mask_input"))
-        expects += ",mask"
-        expected_args = 2
+        expects = "mask" if expects == "none" else f"{expects},mask"
+        expected_args += 1
 
     return Recipe(expected_args=expected_args, expects=expects, outputs=outputs, output_ext=ext, patches=patches)
 
