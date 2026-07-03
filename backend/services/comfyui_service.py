@@ -413,7 +413,8 @@ def apply_patches(wf: WorkflowInfo, patches: List[Patch], values: dict) -> dict:
         if patch.node_id in nodes and "inputs" in nodes[patch.node_id]:
             orig_val = nodes[patch.node_id]["inputs"].get(patch.field)
             new_val = values[patch.source]
-            if isinstance(orig_val, bool) and not isinstance(new_val, bool):
+            is_bool_node = nodes[patch.node_id].get("class_type") == "PrimitiveBoolean" or isinstance(orig_val, bool)
+            if is_bool_node and not isinstance(new_val, bool):
                 if isinstance(new_val, str):
                     new_val = new_val.lower() in ("true", "1", "t", "yes", "on")
                 else:

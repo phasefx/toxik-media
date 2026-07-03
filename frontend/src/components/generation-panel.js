@@ -639,7 +639,9 @@ export class GenerationPanel {
                             if (ff.type === 'number' || ff.type === 'combo_number') {
                                 val = Number(val);
                             }
-                            inputs[ff.field_name] = val;
+                            if (ff.field_name && ff.field_name !== 'value') {
+                                inputs[ff.field_name] = val;
+                            }
                             inputs[ff.label] = val;
                         }
                     });
