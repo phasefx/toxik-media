@@ -196,7 +196,8 @@ export class GenerationPanel {
                         `).join('');
                         fieldHtml = `<select id="ff-${idx}" class="input" style="height: 40px; cursor: pointer; font-size: 0.9rem;">${opts}</select>`;
                     } else if (ff.type === 'checkbox') {
-                        fieldHtml = `<input type="checkbox" id="ff-${idx}" ${ff.default === 'TRUE' || ff.default === true ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px;" />`;
+                        const isChecked = String(ff.default).toLowerCase() === 'true' || ff.default === true || ff.default === 1 || ff.default === '1' || ff.default === 'yes' || ff.default === 'on';
+                        fieldHtml = `<input type="checkbox" id="ff-${idx}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px;" />`;
                     } else if (ff.type === 'spacer') {
                         return;
                     } else {
@@ -537,8 +538,8 @@ export class GenerationPanel {
                     workflow.form_fields.forEach((ff, idx) => {
                         if (ff.type === 'spacer') return;
                         const el = this.container.querySelector(`#ff-${idx}`);
-                        if (el) {
-                            let val = ff.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value;
+                         if (el) {
+                            let val = ff.type === 'checkbox' ? el.checked : el.value;
                             if (ff.type === 'number' || ff.type === 'combo_number') {
                                 val = Number(val);
                             }

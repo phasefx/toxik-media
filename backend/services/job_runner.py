@@ -170,6 +170,13 @@ async def _execute_job(db, job: dict):
                 if ff.type in ("number", "combo_number"):
                     try: val = float(val)
                     except: val = 0.0
+                elif ff.type == "checkbox":
+                    if isinstance(val, str):
+                        val = val.lower() in ("true", "1", "t", "yes", "on")
+                    else:
+                        val = bool(val)
+                elif isinstance(val, str) and val.lower() in ("true", "false") and ff.type not in ("string", "textarea"):
+                    val = (val.lower() == "true")
                 patchable_values[f"form_{i}"] = val
 
         total_iterations = count * chain_count

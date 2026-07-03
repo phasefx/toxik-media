@@ -89,8 +89,8 @@ class FormField:
     label: str
     node_id: str
     field_name: str
-    type: str  # "textarea"|"string"|"number"|"combo"|"combo_number"
-    default: str
+    type: str  # "textarea"|"string"|"number"|"combo"|"combo_number"|"checkbox"
+    default: Any
     options: List[str] = field(default_factory=list)
 
 @dataclass
@@ -160,9 +160,9 @@ def discover_form_fields(
     fields: List[FormField] = []
     prompts_in_sampler = False
 
-    def current_val(node_id: str, field_name: str) -> str:
+    def current_val(node_id: str, field_name: str) -> Any:
         val = nodes.get(node_id, {}).get("inputs", {}).get(field_name, "")
-        return "" if val is None else str(val)
+        return val if val is not None else ""
 
     def add(label: str, node_id: str, field_name: str, field_type: str):
         fields.append(FormField(
@@ -229,7 +229,10 @@ def discover_form_fields(
                 continue
             if any(f.node_id == nid and f.field_name == fname for f in fields):
                 continue
-            if fname in ("text", "prompt", "value") or ct in ("CLIPTextEncode", "PrimitiveStringMultiline", "TextEncodeQwenImageEdit", "TextEncodeQwenImageEditPlus", "VibeVoiceSingleSpeakerNode"):
+            if isinstance(fval, bool) or ct == "PrimitiveBoolean":
+                label = title if (len(title) < 50 and title != ct) else fname.replace("_", " ").title()
+                ftype = "checkbox"
+            elif fname in ("text", "prompt", "value") or ct in ("CLIPTextEncode", "PrimitiveStringMultiline", "TextEncodeQwenImageEdit", "TextEncodeQwenImageEditPlus", "VibeVoiceSingleSpeakerNode"):
                 if "neg" in title.lower() or "neg" in fname.lower():
                     label = "Negative Prompt"
                     ftype = "textarea"
@@ -239,9 +242,6 @@ def discover_form_fields(
             elif isinstance(fval, (int, float)) and not isinstance(fval, bool):
                 label = fname.replace("_", " ").title()
                 ftype = "number"
-            elif isinstance(fval, bool):
-                label = fname.replace("_", " ").title()
-                ftype = "checkbox"
             else:
                 label = fname.replace("_", " ").title()
                 ftype = "textarea" if (isinstance(fval, str) and (len(fval) > 50 or "\n" in fval)) else "string"
@@ -411,7 +411,14 @@ def apply_patches(wf: WorkflowInfo, patches: List[Patch], values: dict) -> dict:
             logger.warning(f"No value provided for patch source '{patch.source}'; skipping.")
             continue
         if patch.node_id in nodes and "inputs" in nodes[patch.node_id]:
-            nodes[patch.node_id]["inputs"][patch.field] = values[patch.source]
+            orig_val = nodes[patch.node_id]["inputs"].get(patch.field)
+            new_val = values[patch.source]
+            if isinstance(orig_val, bool) and not isinstance(new_val, bool):
+                if isinstance(new_val, str):
+                    new_val = new_val.lower() in ("true", "1", "t", "yes", "on")
+                else:
+                    new_val = bool(new_val)
+            nodes[patch.node_id]["inputs"][patch.field] = new_val
     return nodes
 
 def build_prefix(primary_input: Optional[str], suffix: str) -> str:

@@ -77,8 +77,8 @@ class FormFieldItem(BaseModel):
     label: str
     node_id: str
     field_name: str
-    type: str  # "textarea"|"string"|"number"|"combo"|"combo_number"
-    default: str = ""
+    type: str  # "textarea"|"string"|"number"|"combo"|"combo_number"|"checkbox"
+    default: Any = ""
     options: List[str] = []
 
 class WorkflowItem(BaseModel):
