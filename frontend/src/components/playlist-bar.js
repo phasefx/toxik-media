@@ -31,7 +31,7 @@ export class PlaylistBar {
                         store.set({ playlist: { ...pl, isPlaying: false, currentIndex: 0, activeId: null } });
                     }
                 }
-                if (changed.playlist || changed.results || changed.viewMode || changed.activeFilter !== undefined) {
+                if (changed.playlist || changed.results || changed.viewMode || changed.activeFilter !== undefined || changed.selectedIds || changed.isMultiSelect !== undefined) {
                     this.render();
                 }
             } else {
@@ -223,6 +223,15 @@ export class PlaylistBar {
     }
 
     render() {
+        const isMultiSelect = store.get('isMultiSelect');
+        const selectedIds = store.get('selectedIds') || new Set();
+        if (isMultiSelect && selectedIds.size > 0) {
+            this.container.style.display = 'none';
+            return;
+        } else {
+            this.container.style.display = '';
+        }
+
         const pl = store.get('playlist') || {};
         const items = this.getVisibleItems();
         const total = items.length;

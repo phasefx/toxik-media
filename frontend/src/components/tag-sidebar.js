@@ -173,10 +173,6 @@ export class TagSidebar {
                 ${this.expandedSections.has('actions') ? `
                   <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 8px;">
                     <div style="display: flex; gap: 8px;">
-                      <button class="btn btn-primary" id="btn-gen-t2i" style="flex: 1; height: 36px; font-size: 0.85rem;" title="Text-to-Image Generation">🎨 T2I</button>
-                      <button class="btn btn-primary" id="btn-gen-t2v" style="flex: 1; height: 36px; font-size: 0.85rem; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Text-to-Video Generation">🎬 T2V</button>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
                       <button class="btn" id="btn-import" title="Import Media" style="flex: 1; height: 36px; font-size: 0.8rem;">📥 Import</button>
                       <button class="btn" id="btn-reingest-displayed" title="Re-Ingest Displayed Media" style="flex: 1; height: 36px; font-size: 0.8rem;">🔄 Re-Ingest</button>
                     </div>
@@ -467,24 +463,6 @@ export class TagSidebar {
                     reingestBtn.textContent = '🔄 Re-Ingest';
                     reingestBtn.disabled = false;
                 }
-            });
-        }
-
-        const t2iBtn = this.container.querySelector('#btn-gen-t2i');
-        if (t2iBtn) {
-            t2iBtn.addEventListener('click', () => {
-                const willOpen = !store.get('isGenerationOpen');
-                const sticky = store.get('stickyTab') || 'form';
-                store.set({ isGenerationOpen: willOpen, generationTab: sticky, entryMode: 'T2I' });
-            });
-        }
-
-        const t2vBtn = this.container.querySelector('#btn-gen-t2v');
-        if (t2vBtn) {
-            t2vBtn.addEventListener('click', () => {
-                const willOpen = !store.get('isGenerationOpen');
-                const sticky = store.get('stickyTab') || 'form';
-                store.set({ isGenerationOpen: willOpen, generationTab: sticky, entryMode: 'T2V' });
             });
         }
 

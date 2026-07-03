@@ -25,6 +25,11 @@ export class BatchTagBar {
               <strong style="color: #fff; font-size: 0.9rem;">${selectedIds.size} selected</strong>
             </div>
 
+            <div style="display: flex; gap: 6px;">
+              <button class="btn" id="btn-batch-select-all" title="Select all displayed items" style="height: 32px; padding: 0 10px; font-size: 0.75rem; border-color: rgba(0, 240, 255, 0.4); color: var(--accent-cyan);">Select All</button>
+              <button class="btn" id="btn-batch-select-none" title="Deselect all items" style="height: 32px; padding: 0 10px; font-size: 0.75rem; color: #aaa;">Select None</button>
+            </div>
+
             <div style="height: 24px; width: 1px; background: var(--border-color);"></div>
 
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -154,6 +159,20 @@ export class BatchTagBar {
         const cancelBtn = this.container.querySelector('#btn-batch-cancel');
         if (cancelBtn) {
             cancelBtn.addEventListener('click', () => {
+                store.clearSelection();
+            });
+        }
+
+        const selectAllBtn = this.container.querySelector('#btn-batch-select-all');
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                store.selectAll();
+            });
+        }
+
+        const selectNoneBtn = this.container.querySelector('#btn-batch-select-none');
+        if (selectNoneBtn) {
+            selectNoneBtn.addEventListener('click', () => {
                 store.clearSelection();
             });
         }

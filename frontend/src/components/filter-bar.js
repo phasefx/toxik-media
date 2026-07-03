@@ -6,6 +6,9 @@ export class FilterBar {
         this.container = container;
         this.render();
         store.subscribe((state, changed) => {
+            if (changed && changed.selectedIds) {
+                this.updateDisabledStates();
+            }
             if (changed && Object.keys(changed).every(k => ['workflows', 'jobs', 'page', 'isLoading', 'activeModalItem', 'selectedIds'].includes(k))) {
                 return;
             }
@@ -47,7 +50,7 @@ export class FilterBar {
         this.container.innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); flex-wrap: wrap;">
             <!-- Left: Breadcrumb & Filter Info -->
-            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 280px;">
+            <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
               <button class="btn btn-icon" id="btn-toggle-sidebar" title="Toggle Sidebar (Collapse / Expand)" style="width: 36px; height: 36px; font-size: 1.1rem; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff;">
                 ${store.get('isSidebarCollapsed') ? '▶' : '◀'}
               </button>
@@ -55,11 +58,20 @@ export class FilterBar {
               ${breadcrumbHtml}
             </div>
 
-            <!-- Right: Wildcard Search Input -->
-            <div style="display: flex; align-items: center; gap: 8px; width: 340px; min-width: 220px;">
+            <!-- Middle: Wildcard Search Input -->
+            <div style="display: flex; align-items: center; gap: 6px; width: 260px; min-width: 180px;">
               <input type="text" class="input" id="filter-input" placeholder="Filter tags (e.g. *.Clip or Person)..." value="${activeFilter}"
-                     style="height: 38px; font-size: 0.85rem; width: 100%;" />
-              <button class="btn" id="btn-search-apply" title="Apply Filter" style="height: 38px; padding: 0 14px;">🔍</button>
+                     style="height: 36px; font-size: 0.85rem; width: 100%;" />
+              <button class="btn" id="btn-search-apply" title="Apply Filter" style="height: 36px; padding: 0 14px;">🔍</button>
+            </div>
+
+            <!-- Right: Gen Buttons (Right Justified) -->
+            <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+              <button class="btn btn-primary" id="btn-top-t2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Text-to-Image Generation">🎨 T2I</button>
+              <button class="btn btn-primary" id="btn-top-t2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Text-to-Video Generation">🎬 T2V</button>
+              <button class="btn btn-primary" id="btn-top-i2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Image-to-Image Generation (Requires Selection)">🖼️ I2I</button>
+              <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
+              <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
             </div>
           </div>
         `;
@@ -104,6 +116,31 @@ export class FilterBar {
                 if (e.key === 'Enter') apply();
             });
         }
+
+        [['btn-top-t2i', 'T2I'], ['btn-top-t2v', 'T2V'], ['btn-top-i2i', 'I2I'], ['btn-top-i2v', 'I2V'], ['btn-top-v2v', 'V2V']].forEach(([id, mode]) => {
+            const btn = this.container.querySelector(`#${id}`);
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    const willOpen = !(store.get('isGenerationOpen') && store.get('entryMode') === mode);
+                    const sticky = store.get('stickyTab') || 'form';
+                    store.set({ isGenerationOpen: willOpen, generationTab: sticky, entryMode: mode });
+                });
+            }
+        });
+
+        this.updateDisabledStates();
+    }
+
+    updateDisabledStates() {
+        const hasSelection = (store.get('selectedIds') || new Set()).size > 0;
+        ['btn-top-i2i', 'btn-top-i2v', 'btn-top-v2v'].forEach(id => {
+            const btn = this.container.querySelector(`#${id}`);
+            if (btn) {
+                btn.disabled = !hasSelection;
+                btn.style.opacity = hasSelection ? '1' : '0.4';
+                btn.style.cursor = hasSelection ? 'pointer' : 'not-allowed';
+            }
+        });
     }
 }
 

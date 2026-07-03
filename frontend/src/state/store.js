@@ -213,6 +213,23 @@ class Store extends EventTarget {
         this.set({ selectedIds: new Set(), isMultiSelect: false, lastSelectedId: null });
     }
 
+    selectAll() {
+        const ids = [];
+        (this.state.results || []).forEach(r => {
+            if (r.type === 'item' && r.media && r.media.id) {
+                ids.push(r.media.id);
+            } else if (r.type === 'aggregate' && r.item_ids) {
+                ids.push(...r.item_ids);
+            }
+        });
+        const selected = new Set(ids);
+        this.set({
+            selectedIds: selected,
+            isMultiSelect: selected.size > 0,
+            lastSelectedId: ids[ids.length - 1] || null
+        });
+    }
+
     async loadWorkflowsAndJobs() {
         try {
             const [workflows, jobs] = await Promise.all([
