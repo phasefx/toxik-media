@@ -72,6 +72,32 @@ async def list_jobs(db: aiosqlite.Connection = Depends(get_db)):
         ))
     return jobs
 
+@router.get("/jobs/{job_id}/workflow")
+async def get_job_workflow(job_id: str, db: aiosqlite.Connection = Depends(get_db)):
+    cursor = await db.execute("SELECT workflow_id, inputs, workflow_json FROM generation_jobs WHERE id = ?", (job_id,))
+    row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if row["workflow_json"]:
+        try:
+            return json.loads(row["workflow_json"])
+        except Exception:
+            pass
+
+    # Fallback compute on the fly
+    try:
+        inputs_dict = json.loads(row["inputs"])
+    except Exception:
+        inputs_dict = {}
+
+    from backend.services.job_runner import compute_patched_workflow
+    try:
+        patched = await compute_patched_workflow(row["workflow_id"], inputs_dict)
+        return patched
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compute workflow JSON: {e}")
+
 @router.delete("/jobs/clear")
 async def clear_finished_jobs(db: aiosqlite.Connection = Depends(get_db)):
     await db.execute("DELETE FROM generation_jobs WHERE status IN ('completed', 'error', 'canceled', 'cancelled')")

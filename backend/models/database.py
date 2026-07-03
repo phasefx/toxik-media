@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS generation_jobs (
     workflow_id TEXT NOT NULL,
     status      TEXT NOT NULL DEFAULT 'queued',
     inputs      TEXT NOT NULL,
+    workflow_json TEXT,
     comfyui_id  TEXT,
     progress    REAL DEFAULT 0,
     output_ids  TEXT,
@@ -135,6 +136,9 @@ async def run_migrations(db: aiosqlite.Connection):
             ("z_index", "INTEGER DEFAULT 0"),
             ("rotation", "REAL DEFAULT 0"),
             ("locked", "BOOLEAN DEFAULT FALSE")
+        ],
+        "generation_jobs": [
+            ("workflow_json", "TEXT")
         ]
     }
 

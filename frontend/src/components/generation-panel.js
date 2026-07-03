@@ -385,6 +385,7 @@ export class GenerationPanel {
                 <span class="badge" style="background: ${j.status === 'completed' ? '#00c853' : j.status === 'running' ? 'var(--accent-cyan)' : j.status === 'error' ? '#ff5252' : j.status === 'canceled' || j.status === 'cancelled' ? '#9e9e9e' : '#ff9100'}; color: #000; font-weight: 700;">
                   ${j.status.toUpperCase()}
                 </span>
+                <button class="btn-inspect-json" data-id="${j.id}" title="Inspect modified workflow JSON" style="height: 24px; padding: 0 8px; font-size: 0.75rem; background: rgba(0, 240, 255, 0.15); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 4px; cursor: pointer; font-weight: 700; font-family: monospace;">{}</button>
                 ${(j.status === 'queued' || j.status === 'running') ? `
                   <button class="btn-cancel-job" data-id="${j.id}" title="Cancel job" style="height: 24px; padding: 0 8px; font-size: 0.75rem; background: rgba(255, 82, 82, 0.2); border: 1px solid #ff5252; color: #ff5252; border-radius: 4px; cursor: pointer; font-weight: 600;">🛑 Cancel</button>
                 ` : `
@@ -432,6 +433,101 @@ export class GenerationPanel {
                     alert(`Delete failed: ${err.message}`);
                 }
             });
+        });
+
+        this.container.querySelectorAll('.btn-inspect-json').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const jid = btn.getAttribute('data-id');
+                try {
+                    btn.textContent = '⏳';
+                    const res = await fetch(`/api/jobs/${jid}/workflow`);
+                    if (!res.ok) throw new Error(await res.text());
+                    const jsonObj = await res.json();
+                    btn.textContent = '{}';
+                    this.showJsonModal(jid, jsonObj);
+                } catch (err) {
+                    btn.textContent = '{}';
+                    alert(`Failed to load workflow JSON: ${err.message}`);
+                }
+            });
+        });
+    }
+
+    syntaxHighlightJson(jsonObj) {
+        let json = JSON.stringify(jsonObj, null, 2);
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            let cls = 'number';
+            let color = '#ff9100'; // Orange for numbers
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                    color = '#00f0ff'; // Cyan for keys
+                } else {
+                    cls = 'string';
+                    color = '#00c853'; // Green for strings
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+                color = '#ff5252'; // Red/Pink for booleans
+            } else if (/null/.test(match)) {
+                cls = 'null';
+                color = '#9e9e9e'; // Gray for null
+            }
+            return `<span style="color: ${color}; font-weight: ${cls === 'key' ? '600' : 'normal'};">${match}</span>`;
+        });
+    }
+
+    showJsonModal(jid, jsonObj) {
+        const existing = document.querySelector('#json-modal-backdrop');
+        if (existing) existing.remove();
+
+        const colorizedHtml = this.syntaxHighlightJson(jsonObj);
+        const modalEl = document.createElement('div');
+        modalEl.id = 'json-modal-backdrop';
+        modalEl.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 30px; animation: fadeIn 0.15s ease;';
+
+        modalEl.innerHTML = `
+          <div class="glass" style="width: 100%; max-width: 900px; height: 85vh; max-height: 800px; display: flex; flex-direction: column; border: 1px solid var(--accent-cyan); border-radius: var(--radius-lg); box-shadow: 0 30px 100px rgba(0,240,255,0.25); background: var(--bg-card); overflow: hidden; position: relative;">
+            <div style="height: 56px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: var(--bg-glass-heavy);">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 1.1rem; font-weight: 700; color: #fff; font-family: monospace;">{} Modified Workflow JSON</span>
+                <span style="font-size: 0.8rem; background: rgba(0,240,255,0.15); color: var(--accent-cyan); padding: 2px 10px; border-radius: 12px; font-weight: 600;">Job #${jid.substring(0, 8)}</span>
+              </div>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <button id="btn-copy-json" class="btn" style="height: 30px; padding: 0 14px; font-size: 0.8rem; background: var(--accent-gradient); color: #fff; border: none; font-weight: 700; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px;">📋 Copy JSON</button>
+                <button id="btn-close-json-modal" class="btn btn-icon" style="width: 32px; height: 32px; font-size: 1.1rem;">✕</button>
+              </div>
+            </div>
+            <div style="flex: 1; overflow-y: auto; padding: 20px; background: #08080a; font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; user-select: text !important; -webkit-user-select: text !important;">
+              <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">${colorizedHtml}</pre>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(modalEl);
+
+        const closeBtn = modalEl.querySelector('#btn-close-json-modal');
+        const copyBtn = modalEl.querySelector('#btn-copy-json');
+
+        const closeModal = () => {
+            modalEl.remove();
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        modalEl.addEventListener('click', (e) => {
+            if (e.target === modalEl) closeModal();
+        });
+
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(JSON.stringify(jsonObj, null, 2));
+            copyBtn.textContent = '✓ Copied!';
+            copyBtn.style.background = '#00c853';
+            setTimeout(() => {
+                copyBtn.textContent = '📋 Copy JSON';
+                copyBtn.style.background = 'var(--accent-gradient)';
+            }, 2000);
         });
     }
 

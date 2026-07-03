@@ -113,6 +113,86 @@ async def extract_last_frame(video_path: str, output_dir: Path) -> str:
 
     return video_path
 
+async def compute_patched_workflow(workflow_id: str, inputs: dict, seed: Optional[int] = None) -> dict:
+    """Compute the runtime patched ComfyUI workflow JSON for a given workflow and inputs."""
+    from backend.services.comfyui_service import discover_workflow, assemble, apply_patches, Patch, build_prefix
+
+    workflow_path = None
+    for search_dir in _get_workflow_dirs():
+        candidate = search_dir / f"{workflow_id}.json"
+        if candidate.exists():
+            workflow_path = candidate
+            break
+
+    if not workflow_path:
+        raise FileNotFoundError(f"Workflow '{workflow_id}' not found in any workflow directory.")
+
+    wf = discover_workflow(workflow_id, workflow_path)
+    if wf.is_utility:
+        return wf.nodes
+
+    recipe = assemble(workflow_id, wf)
+    inputs_copy = dict(inputs)
+    inputs_copy.pop("_front", False)
+    patchable_values = {}
+
+    for i, ff in enumerate(wf.form_fields):
+        key = ff.field_name
+        val = inputs_copy.get(key, inputs_copy.get(ff.label, ff.default))
+
+        if key in ("_count", "_chain") or key.startswith("_"):
+            continue
+        else:
+            if ff.type in ("number", "combo_number"):
+                try: val = float(val)
+                except: val = 0.0
+            elif ff.type == "checkbox":
+                if isinstance(val, str):
+                    val = val.lower() in ("true", "1", "t", "yes", "on")
+                else:
+                    val = bool(val)
+            elif isinstance(val, str) and val.lower() in ("true", "false") and ff.type not in ("string", "textarea"):
+                val = (val.lower() == "true")
+            patchable_values[f"form_{i}"] = val
+
+    if seed is None:
+        try:
+            seed = int(inputs_copy.get("seed", random.randint(0, 2**31 - 1)))
+        except Exception:
+            seed = random.randint(0, 2**31 - 1)
+
+    values = {
+        **patchable_values,
+        "prefix": build_prefix(None, f"-{workflow_id}"),
+        "seed": seed,
+    }
+
+    output_dir = settings.comfyui_output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if "primary_input" in inputs_copy:
+        val = inputs_copy["primary_input"]
+        if val and any(str(val).lower().endswith(ext) for ext in (".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v")):
+            if wf.load_image and not wf.load_video:
+                try:
+                    val = await extract_last_frame(str(val), output_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to auto-extract frame for JSON inspection: {e}")
+        values["primary_input"] = val
+    if "audio_input" in inputs_copy:
+        values["audio_input"] = inputs_copy["audio_input"]
+    if "mask_input" in inputs_copy:
+        values["mask_input"] = inputs_copy["mask_input"]
+
+    form_patches = [
+        Patch(node_id=ff.node_id, field=ff.field_name, source=f"form_{i}")
+        for i, ff in enumerate(wf.form_fields)
+        if ff.node_id and not ff.field_name.startswith("_")
+    ]
+    all_patches = recipe.patches + form_patches
+    patched = apply_patches(wf, all_patches, values)
+    return patched
+
 async def _execute_job(db, job: dict):
     """Execute a single generation job against ComfyUI."""
     from backend.services.comfyui_service import (
@@ -225,7 +305,7 @@ async def _execute_job(db, job: dict):
             prompt_id = await submit_to_comfyui(
                 patched, settings.comfyui_host, settings.comfyui_port, front=front
             )
-            await _update_job(db, job_id, comfyui_id=prompt_id, progress=completed / total_iterations + 0.05 / total_iterations)
+            await _update_job(db, job_id, comfyui_id=prompt_id, workflow_json=patched, progress=completed / total_iterations + 0.05 / total_iterations)
 
             max_polls = 2400
             for poll in range(max_polls):
