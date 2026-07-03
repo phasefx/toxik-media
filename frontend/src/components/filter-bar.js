@@ -79,7 +79,7 @@ export class FilterBar {
                   ${catalogsOptions || `<option value="${activeCatalog}">${activeCatalog}</option>`}
                 </select>
                 <button class="btn btn-icon" id="btn-add-catalog" title="Create / Switch to New Catalog" style="width: 26px; height: 26px; font-size: 1rem; padding: 0; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); color: var(--accent-cyan); display: flex; align-items: center; justify-content: center; line-height: 1;">+</button>
-                <button class="btn btn-icon" id="btn-del-catalog" title="Delete selected catalog (must not be currently active)" style="width: 26px; height: 26px; font-size: 0.85rem; padding: 0; background: rgba(255, 0, 0, 0.15); border: 1px solid rgba(255, 0, 0, 0.4); color: #ff6b6b; display: flex; align-items: center; justify-content: center; line-height: 1;">🗑️</button>
+                <button class="btn btn-icon" id="btn-del-catalog" title="Delete an inactive catalog by typing its exact name" style="width: 26px; height: 26px; font-size: 0.85rem; padding: 0; background: rgba(255, 0, 0, 0.15); border: 1px solid rgba(255, 0, 0, 0.4); color: #ff6b6b; display: flex; align-items: center; justify-content: center; line-height: 1;">🗑️</button>
               </div>
             </div>
 
@@ -169,15 +169,26 @@ export class FilterBar {
         const delCat = this.container.querySelector('#btn-del-catalog');
         if (delCat) {
             delCat.addEventListener('click', async () => {
-                const selName = selCat ? selCat.value : null;
-                if (!selName) return;
-                if (selName === store.get('activeCatalog')) {
-                    alert('Cannot delete the currently active catalog. Switch to another catalog first.');
+                const activeCat = store.get('activeCatalog');
+                const inputName = prompt(`To delete an inactive catalog, type the exact database filename to delete (e.g. old_project.db):\n(Active catalog "${activeCat}" cannot be deleted)`);
+                if (!inputName) return;
+                const targetName = inputName.trim();
+                if (!targetName) return;
+
+                if (targetName === activeCat) {
+                    alert(`Cannot delete the currently active catalog "${targetName}". Switch to another catalog first.`);
                     return;
                 }
-                if (confirm(`Are you sure you want to permanently delete catalog "${selName}"?`)) {
+
+                const catalogs = store.get('catalogs') || [];
+                if (!catalogs.some(c => c.name === targetName)) {
+                    alert(`Catalog "${targetName}" not found in available catalogs list.`);
+                    return;
+                }
+
+                if (confirm(`Are you absolutely sure you want to permanently delete catalog "${targetName}"? This cannot be undone.`)) {
                     try {
-                        await api.deleteCatalog(selName);
+                        await api.deleteCatalog(targetName);
                         await store.loadCatalogs();
                     } catch (err) {
                         alert(`Failed to delete catalog: ${err.message || err}`);

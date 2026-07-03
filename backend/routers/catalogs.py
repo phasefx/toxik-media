@@ -42,20 +42,26 @@ async def list_catalogs():
     catalogs.sort(key=lambda c: (not c.active, c.name.lower()))
     return catalogs
 
+def sanitize_catalog_name(name: str) -> str:
+    name = name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Catalog name cannot be empty")
+    if "\0" in name or any(ord(c) < 32 for c in name):
+        raise HTTPException(status_code=400, detail="Catalog name contains invalid control characters")
+    if re.search(r'[\\/]|(\.\.)', name):
+        raise HTTPException(status_code=400, detail="Invalid catalog filename (path traversal or separators forbidden)")
+    if not re.match(r'^[a-zA-Z0-9_.-]+$', name):
+        raise HTTPException(status_code=400, detail="Catalog name contains invalid characters. Only alphanumeric, dashes, underscores, and dots are allowed.")
+    if not name.endswith(".db"):
+        name += ".db"
+    if name.startswith("."):
+        raise HTTPException(status_code=400, detail="Catalog name cannot start with a dot")
+    return name
+
 @router.post("/switch", response_model=Dict[str, Any])
 async def switch_catalog(request: SwitchCatalogRequest):
     """Switch the active SQLite database catalog to another file in data_dir (creating it if needed)."""
-    name = request.name.strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Catalog name cannot be empty")
-
-    # Security/sanitization: ensure valid filename without path separators or traversal
-    if re.search(r'[\\/]|(\.\.)', name):
-        raise HTTPException(status_code=400, detail="Invalid catalog filename")
-
-    if not name.endswith(".db"):
-        name += ".db"
-
+    name = sanitize_catalog_name(request.name)
     new_db_path = (settings.data_dir / name).resolve()
 
     # Ensure it stays within data_dir
@@ -76,10 +82,7 @@ async def switch_catalog(request: SwitchCatalogRequest):
 @router.delete("/{name}", response_model=Dict[str, Any])
 async def delete_catalog(name: str):
     """Delete an inactive SQLite database catalog file from data_dir."""
-    name = name.strip()
-    if re.search(r'[\\/]|(\.\.)', name) or not name.endswith(".db"):
-        raise HTTPException(status_code=400, detail="Invalid catalog filename")
-
+    name = sanitize_catalog_name(name)
     active_name = settings.db_path.name if settings.db_path else "toxik.db"
     if name == active_name:
         raise HTTPException(status_code=400, detail="Cannot delete the currently active catalog")

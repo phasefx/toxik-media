@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Optional, Union
 from pydantic import model_validator
@@ -74,6 +75,8 @@ class Settings(BaseSettings):
                 self.comfyui_output_dir = self.data_dir / "comfyui_outputs"
         if catalog is not None and db_path is None:
             cat_name = str(catalog).strip()
+            if "\0" in cat_name or any(ord(c) < 32 for c in cat_name) or re.search(r'[\\/]|(\.\.)', cat_name) or not re.match(r'^[a-zA-Z0-9_.-]+$', cat_name) or cat_name.startswith('.'):
+                raise ValueError(f"Invalid catalog filename: {cat_name}")
             if not cat_name.endswith(".db"):
                 cat_name += ".db"
             self.db_path = (self.data_dir / cat_name).resolve()
