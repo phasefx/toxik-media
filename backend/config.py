@@ -61,16 +61,22 @@ class Settings(BaseSettings):
         comfyui_output_dir: Optional[Union[str, Path]] = None,
         host: Optional[str] = None,
         port: Optional[int] = None,
+        catalog: Optional[str] = None,
     ):
         if data_dir is not None:
             self.data_dir = Path(data_dir).resolve()
             self.data_dir.mkdir(parents=True, exist_ok=True)
-            if db_path is None:
+            if db_path is None and catalog is None:
                 self.db_path = self.data_dir / "toxik.db"
             if thumb_dir is None:
                 self.thumb_dir = self.data_dir / "thumbs"
             if comfyui_output_dir is None and (self.comfyui_output_dir is None or self.comfyui_output_dir.name in ("comfyui_outputs", "comfyui_output")):
                 self.comfyui_output_dir = self.data_dir / "comfyui_outputs"
+        if catalog is not None and db_path is None:
+            cat_name = str(catalog).strip()
+            if not cat_name.endswith(".db"):
+                cat_name += ".db"
+            self.db_path = (self.data_dir / cat_name).resolve()
         if db_path is not None:
             self.db_path = Path(db_path).resolve()
         if thumb_dir is not None:

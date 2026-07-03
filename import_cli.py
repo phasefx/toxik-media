@@ -123,6 +123,11 @@ def parse_args():
         help="Path to the SQLite database file (overrides data-dir default)."
     )
     parser.add_argument(
+        "-c", "--catalog",
+        default=None,
+        help="Name of SQLite database catalog file inside data directory (e.g. project2.db)."
+    )
+    parser.add_argument(
         "--thumb-dir",
         default=None,
         help="Path to the thumbnails directory (overrides data-dir default)."
@@ -461,6 +466,7 @@ def main():
         db_path=args.db_path,
         thumb_dir=args.thumb_dir,
         comfyui_output_dir=args.comfyui_output_dir,
+        catalog=args.catalog,
     )
 
     if args.resume:

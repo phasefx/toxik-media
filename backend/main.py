@@ -58,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--port", type=int, default=settings.port, help="Port to bind server to")
     parser.add_argument("--host", default=settings.host, help="Host interface to bind server to")
     parser.add_argument("--db-path", help="Path to SQLite database")
+    parser.add_argument("-c", "--catalog", help="Name of SQLite database catalog file inside data directory (e.g. project2.db)")
     parser.add_argument("--thumb-dir", help="Path to thumbnails directory")
     parser.add_argument("--comfyui-output-dir", help="Path to ComfyUI output directory")
     parser.add_argument("--no-reload", action="store_true", help="Disable uvicorn auto-reload")
@@ -84,6 +85,7 @@ if __name__ == "__main__":
         comfyui_output_dir=args.comfyui_output_dir,
         host=args.host,
         port=args.port,
+        catalog=args.catalog,
     )
 
     uvicorn.run("backend.main:app", host=settings.host, port=settings.port, reload=not args.no_reload)
