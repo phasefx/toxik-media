@@ -90,8 +90,19 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
 
     files_to_import = []
     seen_paths = set()
+    from backend.config import settings
+    data_dir_resolved = settings.data_dir.resolve()
+
     for p in paths:
         path = Path(p).resolve()
+        try:
+            if path.is_relative_to(data_dir_resolved):
+                logger.info(f"[Ingest] Skipping target inside Toxik data directory: {path}")
+                continue
+        except AttributeError:
+            if str(path).startswith(str(data_dir_resolved)):
+                continue
+
         if path.is_file():
             if path.suffix.lower() in IMAGE_EXTS or path.suffix.lower() in VIDEO_EXTS or path.suffix.lower() in AUDIO_EXTS:
                 fp = str(path)
@@ -99,11 +110,22 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
                     seen_paths.add(fp)
                     files_to_import.append(fp)
         elif path.is_dir():
-            for root, _, files in os.walk(path):
+            for root, dirs, files in os.walk(path):
+                try:
+                    dirs[:] = [d for d in dirs if not Path(root, d).resolve().is_relative_to(data_dir_resolved)]
+                except AttributeError:
+                    dirs[:] = [d for d in dirs if not str(Path(root, d).resolve()).startswith(str(data_dir_resolved))]
                 for file in files:
-                    ext = Path(file).suffix.lower()
+                    fpath = Path(root, file).resolve()
+                    try:
+                        if fpath.is_relative_to(data_dir_resolved):
+                            continue
+                    except AttributeError:
+                        if str(fpath).startswith(str(data_dir_resolved)):
+                            continue
+                    ext = fpath.suffix.lower()
                     if ext in IMAGE_EXTS or ext in VIDEO_EXTS or ext in AUDIO_EXTS:
-                        fp = str(Path(root, file).resolve())
+                        fp = str(fpath)
                         if fp not in seen_paths:
                             seen_paths.add(fp)
                             files_to_import.append(fp)
