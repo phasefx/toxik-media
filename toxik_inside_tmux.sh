@@ -1,4 +1,6 @@
 #!/bin/bash
+# ./toxik_inside_tmux.sh -s toxik-movies -d ./data-movies -p 8001 --frontend-port 5174
+# ./toxik_inside_tmux.sh -s toxik-music -d ./data-music -p 8002 --frontend-port 5175
 
 if command -v tmux &> /dev/null; then
     echo "✔ tmux found"
