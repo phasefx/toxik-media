@@ -47,6 +47,12 @@ export class FilterBar {
         }
         breadcrumbHtml += '</div>';
 
+        const catalogs = store.get('catalogs') || [];
+        const activeCatalog = store.get('activeCatalog') || 'toxik.db';
+        const catalogsOptions = catalogs.map(c => `
+          <option value="${c.name}" ${c.name === activeCatalog ? 'selected' : ''} style="background: var(--bg-card); color: #fff;">${c.name}</option>
+        `).join('');
+
         this.container.innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); flex-wrap: wrap;">
             <!-- Left: Breadcrumb & Filter Info -->
@@ -58,11 +64,23 @@ export class FilterBar {
               ${breadcrumbHtml}
             </div>
 
-            <!-- Middle: Wildcard Search Input -->
-            <div style="display: flex; align-items: center; gap: 6px; width: 260px; min-width: 180px;">
-              <input type="text" class="input" id="filter-input" placeholder="Filter tags (e.g. *.Clip or Person)..." value="${activeFilter}"
-                     style="height: 36px; font-size: 0.85rem; width: 100%;" />
-              <button class="btn" id="btn-search-apply" title="Apply Filter" style="height: 36px; padding: 0 14px;">🔍</button>
+            <!-- Middle: Wildcard Search Input & Catalog Switcher -->
+            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 6px; width: 220px; min-width: 160px;">
+                <input type="text" class="input" id="filter-input" placeholder="Filter tags..." value="${activeFilter}"
+                       style="height: 36px; font-size: 0.85rem; width: 100%;" />
+                <button class="btn" id="btn-search-apply" title="Apply Filter" style="height: 36px; padding: 0 14px;">🔍</button>
+              </div>
+
+              <!-- Catalog Switcher -->
+              <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 8px; height: 36px;" title="Switch Database Catalog or Create New">
+                <span style="font-size: 0.85rem; color: var(--accent-cyan);">📚 Catalog:</span>
+                <select id="select-catalog" style="background: transparent; border: none; color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer; outline: none;">
+                  ${catalogsOptions || `<option value="${activeCatalog}">${activeCatalog}</option>`}
+                </select>
+                <button class="btn btn-icon" id="btn-add-catalog" title="Create / Switch to New Catalog" style="width: 26px; height: 26px; font-size: 1rem; padding: 0; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); color: var(--accent-cyan); display: flex; align-items: center; justify-content: center; line-height: 1;">+</button>
+                <button class="btn btn-icon" id="btn-del-catalog" title="Delete selected catalog (must not be currently active)" style="width: 26px; height: 26px; font-size: 0.85rem; padding: 0; background: rgba(255, 0, 0, 0.15); border: 1px solid rgba(255, 0, 0, 0.4); color: #ff6b6b; display: flex; align-items: center; justify-content: center; line-height: 1;">🗑️</button>
+              </div>
             </div>
 
             <!-- Right: Gen Buttons (Right Justified) -->
@@ -127,6 +145,46 @@ export class FilterBar {
                 });
             }
         });
+
+        const selCat = this.container.querySelector('#select-catalog');
+        if (selCat) {
+            selCat.addEventListener('change', async (e) => {
+                const targetName = e.target.value;
+                if (targetName && targetName !== store.get('activeCatalog')) {
+                    await store.switchCatalog(targetName);
+                }
+            });
+        }
+
+        const addCat = this.container.querySelector('#btn-add-catalog');
+        if (addCat) {
+            addCat.addEventListener('click', async () => {
+                const newName = prompt('Enter new catalog database filename (e.g. project_a.db):');
+                if (newName && newName.trim()) {
+                    await store.switchCatalog(newName.trim());
+                }
+            });
+        }
+
+        const delCat = this.container.querySelector('#btn-del-catalog');
+        if (delCat) {
+            delCat.addEventListener('click', async () => {
+                const selName = selCat ? selCat.value : null;
+                if (!selName) return;
+                if (selName === store.get('activeCatalog')) {
+                    alert('Cannot delete the currently active catalog. Switch to another catalog first.');
+                    return;
+                }
+                if (confirm(`Are you sure you want to permanently delete catalog "${selName}"?`)) {
+                    try {
+                        await api.deleteCatalog(selName);
+                        await store.loadCatalogs();
+                    } catch (err) {
+                        alert(`Failed to delete catalog: ${err.message || err}`);
+                    }
+                }
+            });
+        }
 
         this.updateDisabledStates();
     }

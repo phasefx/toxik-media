@@ -30,7 +30,9 @@ class Store extends EventTarget {
             sortBy: 'creation_date',
             sortDir: 'desc',
             isTagCloudOpen: false,
-            isSidebarCollapsed: false
+            isSidebarCollapsed: false,
+            catalogs: [],
+            activeCatalog: ''
         };
     }
 
@@ -248,6 +250,45 @@ class Store extends EventTarget {
             this.set({ jobs });
         } catch (e) {
             console.error('Failed to load jobs:', e);
+        }
+    }
+
+    async loadCatalogs() {
+        try {
+            const catalogs = await api.getCatalogs();
+            const active = catalogs.find(c => c.active);
+            this.set({
+                catalogs,
+                activeCatalog: active ? active.name : (catalogs[0] ? catalogs[0].name : 'toxik.db')
+            });
+        } catch (e) {
+            console.error('Failed to load catalogs:', e);
+        }
+    }
+
+    async switchCatalog(name) {
+        try {
+            this.set({ isLoading: true });
+            const res = await api.switchCatalog(name);
+            this.set({
+                activeCatalog: res.active_catalog,
+                activeFilter: '',
+                page: 1,
+                results: [],
+                selectedIds: new Set(),
+                lastSelectedId: null
+            });
+            await Promise.all([
+                this.loadTags(),
+                this.loadBrowse(true),
+                this.loadWorkflowsAndJobs(),
+                this.loadCatalogs()
+            ]);
+            this.set({ isLoading: false });
+        } catch (e) {
+            console.error('Failed to switch catalog:', e);
+            alert(`Failed to switch catalog: ${e.message || e}`);
+            this.set({ isLoading: false });
         }
     }
 }

@@ -149,5 +149,22 @@ export const api = {
         return def_fetch('/api/generate/unload', {
             method: 'POST'
         });
+    },
+
+    async getCatalogs() {
+        return def_fetch('/api/catalogs');
+    },
+
+    async switchCatalog(name) {
+        return def_fetch('/api/catalogs/switch', {
+            method: 'POST',
+            body: JSON.stringify({ name })
+        });
+    },
+
+    async deleteCatalog(name) {
+        return def_fetch(`/api/catalogs/${encodeURIComponent(name)}`, {
+            method: 'DELETE'
+        });
     }
 };

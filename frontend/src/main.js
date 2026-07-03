@@ -103,7 +103,8 @@ class App {
         await Promise.all([
             store.loadTags(),
             store.loadBrowse(true),
-            store.loadWorkflowsAndJobs()
+            store.loadWorkflowsAndJobs(),
+            store.loadCatalogs()
         ]);
     }
 
