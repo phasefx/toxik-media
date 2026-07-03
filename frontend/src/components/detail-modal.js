@@ -1,0 +1,516 @@
+import { store } from '../state/store.js';
+import { api } from '../api/client.js';
+
+export class DetailModal {
+    constructor(container) {
+        this.container = container;
+        this.modalTimer = null;
+        this.currentRenderedId = null;
+
+        store.subscribe((state, changed) => {
+            if (changed && changed.activeModalItem !== undefined) {
+                this.render(state.activeModalItem);
+            } else if (changed && changed.playlist && state.activeModalItem) {
+                this.updatePlaylistUI();
+            } else if (!changed) {
+                this.render(state.activeModalItem);
+            }
+        });
+        this.attachGlobalEvents();
+    }
+
+    attachGlobalEvents() {
+        let lastWheelTime = 0;
+        this.container.addEventListener('wheel', (e) => {
+            if (!store.get('activeModalItem')) return;
+            if (e.target.closest('.modal-sidebar') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+                return;
+            }
+            e.preventDefault();
+            const now = Date.now();
+            if (now - lastWheelTime < 250) return;
+
+            if (e.deltaY > 10 || e.deltaX > 10) {
+                lastWheelTime = now;
+                this.stepAdjacentMedia(1);
+            } else if (e.deltaY < -10 || e.deltaX < -10) {
+                lastWheelTime = now;
+                this.stepAdjacentMedia(-1);
+            }
+        }, { passive: false });
+    }
+
+    stepAdjacentMedia(direction) {
+        if (this.modalTimer) {
+            clearTimeout(this.modalTimer);
+            this.modalTimer = null;
+        }
+        const pl = store.get('playlist') || {};
+        const results = store.get('results') || [];
+        const items = results.filter(r => r.type === 'item' && r.media).map(r => r.media);
+        if (items.length <= 1) return;
+
+        const currentId = store.get('activeModalItem')?.id;
+        const idx = items.findIndex(item => item.id === currentId);
+        if (idx === -1) return;
+
+        let nextIdx;
+        if (pl.loopMode === 'one' && direction > 0 && pl.isPlaying) {
+            nextIdx = idx;
+            const media = this.container.querySelector('video, audio');
+            if (media) {
+                media.currentTime = 0;
+                media.play().catch(() => {});
+                return;
+            }
+        } else if (pl.isShuffle && pl.isPlaying) {
+            nextIdx = Math.floor(Math.random() * items.length);
+        } else {
+            nextIdx = idx + direction;
+            if (nextIdx >= items.length) {
+                if (pl.loopMode === 'set' || !pl.loopMode) {
+                    nextIdx = 0;
+                } else if (pl.isPlaying) {
+                    store.set({ playlist: { ...pl, isPlaying: false } });
+                    return;
+                } else {
+                    nextIdx = 0;
+                }
+            } else if (nextIdx < 0) {
+                nextIdx = items.length - 1;
+            }
+        }
+
+        const activeFS = document.fullscreenElement;
+        const currentVideo = this.container.querySelector('video');
+        this.wasVideoFS = !!(
+            (activeFS && activeFS.tagName && activeFS.tagName.toLowerCase() === 'video') ||
+            (currentVideo && (currentVideo === activeFS || currentVideo === document.webkitFullscreenElement || currentVideo.webkitDisplayingFullscreen || (currentVideo.matches && currentVideo.matches(':fullscreen'))))
+        );
+        const wasBrowserFS = !!(activeFS && !this.wasVideoFS && (activeFS === this.container || this.container.contains(activeFS)));
+        this.wasBrowserFS = wasBrowserFS;
+
+        store.set({ activeModalItem: items[nextIdx] });
+        if (pl.isPlaying) {
+            store.set({ playlist: { ...pl, currentIndex: nextIdx, activeId: items[nextIdx].id } });
+        }
+    }
+
+    updatePlaylistUI() {
+        const pl = store.get('playlist') || {};
+        const playBtn = this.container.querySelector('#btn-modal-play-pl');
+        const shuffleBtn = this.container.querySelector('#btn-modal-shuffle-pl');
+        const loopBtn = this.container.querySelector('#btn-modal-loop-pl');
+
+        if (playBtn) {
+            playBtn.innerHTML = pl.isPlaying ? '⏸ Pause' : '▶ Play';
+            playBtn.style.background = pl.isPlaying ? 'var(--accent-cyan)' : 'var(--accent-gradient)';
+            playBtn.style.color = pl.isPlaying ? '#000' : '#fff';
+        }
+        if (shuffleBtn) {
+            shuffleBtn.innerHTML = `🔀 ${pl.isShuffle ? 'Shuffle: On' : 'Shuffle'}`;
+            shuffleBtn.style.color = pl.isShuffle ? '#fff' : 'var(--text-secondary)';
+            shuffleBtn.style.background = pl.isShuffle ? 'rgba(0, 240, 255, 0.2)' : 'transparent';
+        }
+        if (loopBtn) {
+            let loopLabel = '🔁 Loop: Set';
+            if (pl.loopMode === 'one') loopLabel = '🔂 Loop: One';
+            if (pl.loopMode === 'none') loopLabel = '➡ Loop: Off';
+            loopBtn.innerHTML = loopLabel;
+        }
+
+        this.syncPlaybackState();
+    }
+
+    syncPlaybackState() {
+        if (this.modalTimer) {
+            clearTimeout(this.modalTimer);
+            this.modalTimer = null;
+        }
+        const pl = store.get('playlist') || {};
+        const video = this.container.querySelector('video');
+        const audio = this.container.querySelector('audio');
+
+        if (video) {
+            video.loop = !pl.isPlaying;
+            if (pl.isPlaying) video.removeAttribute('loop');
+            else video.setAttribute('loop', '');
+            video.onended = pl.isPlaying ? () => this.stepAdjacentMedia(1) : null;
+            if (pl.isPlaying && video.paused) video.play().catch(() => {});
+            else if (!pl.isPlaying && !video.paused) video.pause();
+        } else if (audio) {
+            audio.loop = !pl.isPlaying;
+            if (pl.isPlaying) audio.removeAttribute('loop');
+            else audio.setAttribute('loop', '');
+            audio.onended = pl.isPlaying ? () => this.stepAdjacentMedia(1) : null;
+            if (pl.isPlaying && audio.paused) audio.play().catch(() => {});
+            else if (!pl.isPlaying && !audio.paused) audio.pause();
+        } else if (pl.isPlaying) {
+            this.modalTimer = setTimeout(() => {
+                if (store.get('playlist')?.isPlaying && store.get('activeModalItem')) {
+                    this.stepAdjacentMedia(1);
+                }
+            }, 4000);
+        }
+    }
+
+    formatBytes(bytes) {
+        if (!bytes) return 'N/A';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    render(item) {
+        if (!item) {
+            this.container.innerHTML = '';
+            this.container.style.display = 'none';
+            return;
+        }
+
+        this.container.style.display = 'flex';
+        const isVideo = item.media_type === 'video';
+        const mediaUrl = `/api/media/${item.id}/file`;
+
+        const results = store.get('results') || [];
+        const items = results.filter(r => r.type === 'item' && r.media).map(r => r.media);
+        const currentIndex = items.findIndex(i => i.id === item.id);
+        const totalCount = items.length;
+
+        const tagPillsHtml = (item.tags || []).map(t => {
+            const parts = t.split('.');
+            const clickableParts = parts.map((part, idx) => {
+                const subTag = parts.slice(0, idx + 1).join('.');
+                return `<span class="clickable-tag-part" data-filter="${subTag}" title="Filter by ${subTag}">${part}</span>`;
+            }).join('<span style="opacity: 0.4; margin: 0 1px;">.</span>');
+
+            return `
+              <span class="tag-pill" data-filter="${t}" style="font-size: 0.8rem; padding: 4px 10px; background: rgba(0, 240, 255, 0.15); border-color: var(--accent-cyan); display: inline-flex; align-items: center; gap: 6px;">
+                <span style="display: inline-flex; align-items: center;">${clickableParts}</span>
+                <button class="btn-remove-tag" data-tag="${t}" title="Remove tag" style="background: none; border: none; color: #fff; font-weight: 800; cursor: pointer; font-size: 0.9rem; margin-left: 2px;">×</button>
+              </span>
+            `;
+        }).join('');
+
+        this.container.innerHTML = `
+          <div class="modal-backdrop" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 32px; animation: fadeIn 0.2s ease;">
+
+            <div class="modal-content glass" style="width: 100%; max-width: 1280px; height: 90vh; border-radius: var(--radius-lg); display: flex; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,0.9); border: 1px solid rgba(255,255,255,0.15);">
+
+              <!-- Left / Main: Media Viewer -->
+              <div class="modal-media-container" style="flex: 1; background: #000; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; min-width: 0;">
+                <button id="btn-close-modal" style="position: absolute; top: 16px; left: 16px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 1px solid var(--border-color); color: #fff; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
+                <button id="btn-toggle-fs-media" title="Toggle Fullscreen" style="position: absolute; top: 16px; left: 66px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">🖥️</button>
+
+                ${isVideo ? `
+                  <video src="${mediaUrl}" controls autoplay ${store.get('playlist')?.isPlaying ? '' : 'loop'} style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
+                ` : item.media_type === 'audio' ? `
+                  <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); padding: 32px;">
+                    <div style="font-size: 6rem; margin-bottom: 24px; animation: pulseGlow 2s infinite;">🎵</div>
+                    <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 24px; word-break: break-all; text-align: center;">${item.filename}</h2>
+                    <audio src="${mediaUrl}" controls autoplay ${store.get('playlist')?.isPlaying ? '' : 'loop'} style="width: 80%; max-width: 500px;"></audio>
+                  </div>
+                ` : `
+                  <img src="${mediaUrl}" alt="${item.filename}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                `}
+              </div>
+
+              <!-- Right: Metadata & Tag Editor -->
+              <div class="modal-sidebar" style="width: 380px; background: var(--bg-card); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; height: 100%; overflow-y: auto;">
+
+                <!-- Header -->
+                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+                  <div style="flex: 1; min-width: 0;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; word-break: break-all; margin-bottom: 6px;">${item.filename}</h3>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">${item.media_type.toUpperCase()} • ${this.formatBytes(item.file_size)}</span>
+                  </div>
+                  ${totalCount > 1 ? `
+                    <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 20px; padding: 2px 6px;">
+                      <button id="btn-modal-prev" title="Previous Media (Left/Up Arrow or Mouse Wheel Up)" class="btn" style="width: 28px; height: 28px; padding: 0; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">‹</button>
+                      <span style="font-size: 0.75rem; font-weight: 700; color: #fff; padding: 0 4px; min-width: 42px; text-align: center;">${currentIndex + 1} / ${totalCount}</span>
+                      <button id="btn-modal-next" title="Next Media (Right/Down Arrow or Mouse Wheel Down)" class="btn" style="width: 28px; height: 28px; padding: 0; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">›</button>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Playlist Controls in Detail Card -->
+                <div class="detail-play-controls" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); background: rgba(0, 240, 255, 0.05);">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-cyan);">🎵 Play Controls</span>
+                    <div style="display: flex; gap: 6px;">
+                      <button id="btn-modal-dl-pl" class="btn" title="Download VLC Playlist (.m3u8)" style="height: 26px; padding: 0 10px; font-size: 0.75rem; background: rgba(0,240,255,0.15); border: 1px solid var(--accent-cyan); color: #fff; cursor: pointer; font-weight: 600;">
+                        ⬇️ VLC
+                      </button>
+                      <button id="btn-modal-fullscreen" class="btn" title="Toggle Fullscreen Mode" style="height: 26px; padding: 0 10px; font-size: 0.75rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer;">
+                        🖥️ FS
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                    <button id="btn-modal-prev-pl" class="btn btn-icon" title="Previous Item" style="flex: 1; height: 36px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; cursor: pointer;">⏮ Prev</button>
+                    <button id="btn-modal-play-pl" class="btn" title="Play / Pause" style="flex: 1.5; height: 36px; background: var(--accent-gradient); border: none; color: #fff; font-weight: 700; box-shadow: 0 0 15px rgba(0,240,255,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                      ▶ Play
+                    </button>
+                    <button id="btn-modal-next-pl" class="btn btn-icon" title="Next Item" style="flex: 1; height: 36px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; cursor: pointer;">Next ⏭</button>
+                  </div>
+
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <button id="btn-modal-shuffle-pl" class="btn" style="flex: 1; height: 30px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer;">
+                      🔀 Shuffle
+                    </button>
+                    <button id="btn-modal-loop-pl" class="btn" style="flex: 1; height: 30px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer;">
+                      🔁 Loop: Set
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Tags Section -->
+                <div style="padding: 20px; border-bottom: 1px solid var(--border-color); flex: 1;">
+                  <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 12px;">🏷 Hierarchical Tags</h4>
+
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+                    ${tagPillsHtml || '<span style="font-size: 0.85rem; color: var(--text-muted);">No tags assigned yet.</span>'}
+                  </div>
+
+                  <div style="display: flex; gap: 8px;">
+                    <input type="text" id="input-add-tag" class="input" placeholder="Add tag (e.g. Person.Jake)..." style="height: 38px; font-size: 0.85rem;" />
+                    <button class="btn btn-primary" id="btn-add-tag-submit" style="height: 38px; padding: 0 16px;">+</button>
+                  </div>
+                </div>
+
+                <!-- Metadata Details -->
+                <div style="padding: 20px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem;">
+                  <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 12px;">ℹ️ Technical Specs</h4>
+                  <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; color: var(--text-secondary);">
+                    <span>Resolution:</span> <strong style="color: #fff;">${item.width || '?'} × ${item.height || '?'}</strong>
+                    <span>Path:</span> <span style="font-size: 0.75rem; word-break: break-all; color: var(--text-muted);">${item.filepath}</span>
+                    ${item.file_hash ? `<span>SHA-256:</span> <span style="font-size: 0.7rem; font-family: monospace; word-break: break-all; color: var(--text-muted);">${item.file_hash.substring(0, 16)}...</span>` : ''}
+                  </div>
+                </div>
+
+                <!-- Actions -->
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                    <button class="btn" id="btn-action-i2i" style="background: rgba(0, 229, 255, 0.2); border-color: var(--accent-cyan); color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Image to Image">
+                      🎨 I2I
+                    </button>
+                    <button class="btn" id="btn-action-i2v" style="background: rgba(157, 0, 255, 0.2); border-color: var(--accent-purple); color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Image to Video">
+                      🎬 I2V
+                    </button>
+                    <button class="btn" id="btn-action-v2v" style="background: rgba(255, 145, 0, 0.2); border-color: #ff9100; color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Video to Video">
+                      🎥 V2V
+                    </button>
+                  </div>
+                  <button class="btn" id="btn-delete-media" style="width: 100%; background: rgba(255, 0, 0, 0.15); border-color: rgba(255, 0, 0, 0.4); color: #ff6b6b;">
+                    🗑 Delete Media Item
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        `;
+
+        this.updatePlaylistUI();
+        this.attachEvents(item);
+
+        if (this.wasVideoFS) {
+            const newVideo = this.container.querySelector('video');
+            if (newVideo) {
+                if (newVideo.requestFullscreen) {
+                    newVideo.requestFullscreen().catch(() => {
+                        if (document.fullscreenElement && document.fullscreenElement.tagName?.toLowerCase() === 'video') {
+                            document.exitFullscreen().catch(() => {});
+                        }
+                    });
+                } else if (newVideo.webkitEnterFullscreen) {
+                    newVideo.webkitEnterFullscreen();
+                }
+            } else if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+            this.wasVideoFS = false;
+        } else if (this.wasBrowserFS && !document.fullscreenElement) {
+            this.container.requestFullscreen().catch(() => {});
+            this.wasBrowserFS = false;
+        }
+    }
+
+    attachEvents(item) {
+        const closeBtn = this.container.querySelector('#btn-close-modal');
+        const backdrop = this.container.querySelector('.modal-backdrop');
+
+        const close = () => store.set({ activeModalItem: null });
+        if (closeBtn) closeBtn.addEventListener('click', close);
+        if (backdrop) backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) close();
+        });
+
+        const prevBtn = this.container.querySelector('#btn-modal-prev');
+        const nextBtn = this.container.querySelector('#btn-modal-next');
+        if (prevBtn) prevBtn.addEventListener('click', (e) => { e.stopPropagation(); this.stepAdjacentMedia(-1); });
+        if (nextBtn) nextBtn.addEventListener('click', (e) => { e.stopPropagation(); this.stepAdjacentMedia(1); });
+
+        const prevPl = this.container.querySelector('#btn-modal-prev-pl');
+        const playPl = this.container.querySelector('#btn-modal-play-pl');
+        const nextPl = this.container.querySelector('#btn-modal-next-pl');
+        const shufPl = this.container.querySelector('#btn-modal-shuffle-pl');
+        const loopPl = this.container.querySelector('#btn-modal-loop-pl');
+        const fsPl = this.container.querySelector('#btn-modal-fullscreen');
+
+        if (prevPl) prevPl.addEventListener('click', () => this.stepAdjacentMedia(-1));
+        if (nextPl) nextPl.addEventListener('click', () => this.stepAdjacentMedia(1));
+        if (playPl) {
+            playPl.addEventListener('click', () => {
+                const pl = store.get('playlist') || {};
+                store.set({ playlist: { ...pl, isPlaying: !pl.isPlaying } });
+            });
+        }
+        if (shufPl) {
+            shufPl.addEventListener('click', () => {
+                const pl = store.get('playlist') || {};
+                store.set({ playlist: { ...pl, isShuffle: !pl.isShuffle } });
+            });
+        }
+        if (loopPl) {
+            loopPl.addEventListener('click', () => {
+                const pl = store.get('playlist') || {};
+                const modes = ['set', 'one', 'none'];
+                const nextMode = modes[(modes.indexOf(pl.loopMode || 'set') + 1) % modes.length];
+                store.set({ playlist: { ...pl, loopMode: nextMode } });
+            });
+        }
+        const dlPl = this.container.querySelector('#btn-modal-dl-pl');
+        if (dlPl) {
+            dlPl.addEventListener('click', () => {
+                const filter = store.get('activeFilter') || '';
+                const mediaType = store.get('mediaType') || '';
+                let url = `/api/browse/playlist?`;
+                if (filter && filter !== 'All') url += `filter=${encodeURIComponent(filter)}&`;
+                if (mediaType && mediaType !== 'all') url += `media_type=${encodeURIComponent(mediaType)}&`;
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `toxik_${filter || 'all'}.m3u8`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            });
+        }
+        const toggleFs = () => {
+            if (!document.fullscreenElement) {
+                this.container.requestFullscreen().catch(err => console.error(err));
+            } else {
+                document.exitFullscreen().catch(err => console.error(err));
+            }
+        };
+
+        const fsMediaBtn = this.container.querySelector('#btn-toggle-fs-media');
+        if (fsMediaBtn) fsMediaBtn.addEventListener('click', toggleFs);
+        if (fsPl) fsPl.addEventListener('click', toggleFs);
+
+        const addInput = this.container.querySelector('#input-add-tag');
+        const addSubmit = this.container.querySelector('#btn-add-tag-submit');
+
+        const addTag = async () => {
+            const val = addInput.value.trim();
+            if (!val) return;
+            try {
+                await api.batchTag([item.id], { addTags: [val] });
+                const updated = await api.getMedia(item.id);
+                store.set({ activeModalItem: updated });
+                await store.loadTags();
+                await store.loadBrowse(true);
+            } catch (err) {
+                alert(`Failed to add tag: ${err.message}`);
+            }
+        };
+
+        if (addSubmit && addInput) {
+            addSubmit.addEventListener('click', addTag);
+            addInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') addTag();
+            });
+        }
+
+        this.container.querySelectorAll('.btn-remove-tag').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const tag = btn.getAttribute('data-tag');
+                try {
+                    await api.batchTag([item.id], { removeTags: [tag] });
+                    const updated = await api.getMedia(item.id);
+                    store.set({ activeModalItem: updated });
+                    await store.loadTags();
+                    await store.loadBrowse(true);
+                } catch (err) {
+                    alert(`Failed to remove tag: ${err.message}`);
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.clickable-tag-part').forEach(el => {
+            el.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const filterTag = el.getAttribute('data-filter');
+                if (filterTag) {
+                    store.set({ activeModalItem: null });
+                    await store.setFilter(filterTag);
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.tag-pill').forEach(pill => {
+            pill.addEventListener('click', async (e) => {
+                if (e.target.closest('.btn-remove-tag') || e.target.closest('.clickable-tag-part')) return;
+                e.stopPropagation();
+                const filterTag = pill.getAttribute('data-filter');
+                if (filterTag) {
+                    store.set({ activeModalItem: null });
+                    await store.setFilter(filterTag);
+                }
+            });
+        });
+
+        const delBtn = this.container.querySelector('#btn-delete-media');
+        if (delBtn) {
+            delBtn.addEventListener('click', async () => {
+                if (confirm(`Delete "${item.filename}" from library?`)) {
+                    try {
+                        await api.deleteMedia(item.id, false);
+                        store.set({ activeModalItem: null });
+                        await store.loadBrowse(true);
+                        await store.loadTags();
+                    } catch (err) {
+                        alert(`Delete failed: ${err.message}`);
+                    }
+                }
+            });
+        }
+
+        const i2iBtn = this.container.querySelector('#btn-action-i2i');
+        if (i2iBtn) {
+            i2iBtn.addEventListener('click', () => {
+                const sticky = store.get('stickyTab') || 'form';
+                store.set({ isGenerationOpen: true, generationTab: sticky, entryMode: 'I2I' });
+            });
+        }
+
+        const i2vBtn = this.container.querySelector('#btn-action-i2v');
+        if (i2vBtn) {
+            i2vBtn.addEventListener('click', () => {
+                const sticky = store.get('stickyTab') || 'form';
+                store.set({ isGenerationOpen: true, generationTab: sticky, entryMode: 'I2V' });
+            });
+        }
+
+        const v2vBtn = this.container.querySelector('#btn-action-v2v');
+        if (v2vBtn) {
+            v2vBtn.addEventListener('click', () => {
+                const sticky = store.get('stickyTab') || 'form';
+                store.set({ isGenerationOpen: true, generationTab: sticky, entryMode: 'V2V' });
+            });
+        }
+    }
+}

@@ -1,0 +1,79 @@
+/* Montage / Masonry Layout */
+.view-montage {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  align-items: flex-start;
+  animation: fadeIn 0.3s ease;
+}
+
+.montage-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.montage-card {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  touch-action: manipulation;
+}
+
+.montage-card:hover {
+  transform: scale(1.02);
+  z-index: 2;
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow: var(--shadow-md), 0 0 15px rgba(0, 240, 255, 0.15);
+}
+
+.montage-card.selected {
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+}
+
+.montage-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.montage-card:hover .montage-img {
+  transform: scale(1.03);
+}
+
+/* Relative sizing boosters */
+.montage-card.size-lg {
+  border-width: 2px;
+  box-shadow: var(--shadow-md);
+}
+
+.montage-card .card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 14px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.montage-card:hover .card-overlay,
+.montage-card.selected .card-overlay {
+  opacity: 1;
+}
+
+.montage-card.card-aggregate .card-overlay {
+  opacity: 1;
+  background: linear-gradient(to top, rgba(10, 5, 15, 0.95) 0%, rgba(0, 0, 0, 0.2) 60%);
+}

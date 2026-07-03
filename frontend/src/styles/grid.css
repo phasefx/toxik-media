@@ -1,0 +1,108 @@
+/* Compact Grid Layout */
+.view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  width: 100%;
+  animation: fadeIn 0.3s ease;
+}
+
+.card {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  touch-action: manipulation;
+}
+
+.card:hover {
+  transform: scale(1.03);
+  z-index: 2;
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow: var(--shadow-md), 0 0 15px rgba(0, 240, 255, 0.15);
+}
+
+.card.selected {
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+}
+
+.card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.card:hover .card-img {
+  transform: scale(1.05);
+}
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.card:hover .card-overlay,
+.card.selected .card-overlay {
+  opacity: 1;
+}
+
+/* Aggregate Card specific styles */
+.card-aggregate {
+  border: 1px solid rgba(255, 0, 127, 0.4);
+  background: linear-gradient(135deg, rgba(20, 23, 32, 0.9), rgba(40, 10, 30, 0.6));
+}
+
+.card-aggregate::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: -4px;
+  left: -4px;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(255, 0, 127, 0.3);
+  z-index: -1;
+  transition: all 0.2s ease;
+}
+
+.card-aggregate:hover::after {
+  transform: translate(-4px, -4px);
+  border-color: var(--accent-magenta);
+}
+
+.card-aggregate .card-overlay {
+  opacity: 1; /* Always show overlay for aggregates */
+  background: linear-gradient(to top, rgba(10, 5, 15, 0.95) 0%, rgba(0, 0, 0, 0.2) 60%);
+}
+
+.aggregate-label {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.aggregate-count {
+  background: var(--accent-gradient);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 800;
+}

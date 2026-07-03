@@ -1,0 +1,359 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-main: #0a0c10;
+  --bg-card: #141720;
+  --bg-card-hover: #1c212d;
+  --bg-glass: rgba(20, 23, 32, 0.75);
+  --bg-glass-heavy: rgba(10, 12, 16, 0.9);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(0, 240, 255, 0.5);
+
+  --text-primary: #f0f3f8;
+  --text-secondary: #94a1b2;
+  --text-muted: #5e6b7c;
+
+  --accent-cyan: #00f0ff;
+  --accent-magenta: #ff007f;
+  --accent-purple: #9d00ff;
+  --accent-gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-magenta));
+
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 20px rgba(0, 240, 255, 0.25);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --sidebar-width: 260px;
+  --header-height: 64px;
+  --footer-height: 56px;
+
+  /* Touch target accessibility for Quest & Vanadium */
+  --min-tap-target: 44px;
+}
+
+[data-theme="light"] {
+  --bg-main: #f3f6fa;
+  --bg-card: #ffffff;
+  --bg-card-hover: #e8f0f8;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-heavy: rgba(243, 246, 250, 0.95);
+  --border-color: rgba(0, 0, 0, 0.08);
+  --text-primary: #1a1e28;
+  --text-secondary: #5e6b7c;
+  --text-muted: #94a1b2;
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+}
+
+/* App Layout */
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--min-tap-target);
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+.btn:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn-primary {
+  background: var(--accent-gradient);
+  border: none;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-glow);
+}
+.btn-primary:hover {
+  opacity: 0.95;
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
+}
+.btn-icon {
+  width: var(--min-tap-target);
+  height: var(--min-tap-target);
+  padding: 0;
+  border-radius: 50%;
+}
+
+/* Inputs */
+.input {
+  min-height: var(--min-tap-target);
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+}
+
+/* Sidebar */
+#sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  max-width: var(--sidebar-width);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-color);
+  z-index: 10;
+  position: relative;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#sidebar.collapsed {
+  transform: translateX(-100%);
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  border: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Hover-only icons on media cards and items */
+.hover-only-icon {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  transform: scale(0.9);
+}
+.card:hover .hover-only-icon,
+.montage-card:hover .hover-only-icon,
+.card-container:hover .hover-only-icon,
+.viewport-item:hover .hover-only-icon {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+
+/* Tag Tree Hover Actions */
+.tag-actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.tag-tree-item:hover .tag-actions,
+.tag-tree-item:focus-within .tag-actions,
+.tag-tree-item.active .tag-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .tag-actions {
+    opacity: 0.85;
+  }
+}
+
+/* Main Content Area */
+#main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+#header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-glass-heavy);
+  z-index: 5;
+}
+
+#gallery-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px;
+  position: relative;
+}
+
+/* Tag Pills */
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.tag-pill:hover {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: var(--accent-cyan);
+  color: #fff;
+}
+.clickable-tag-part {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.clickable-tag-part:hover {
+  color: var(--accent-cyan);
+  text-decoration: underline;
+}
+
+/* Badges */
+.badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 240, 255, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(255, 0, 127, 0.4); }
+}
+
+/* Playing Highlight for Playlist Mode */
+.playing-highlight {
+  outline: 3px solid var(--accent-cyan) !important;
+  box-shadow: 0 0 35px rgba(0, 240, 255, 0.8), inset 0 0 15px rgba(0, 240, 255, 0.3) !important;
+  transform: scale(1.03);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  z-index: 10 !important;
+}
+
+/* HUD Off Mode (Hides labels, checkboxes, duration badges, and overlays on mouse-over) */
+body.hud-off .media-card-overlay,
+body.hud-off .select-checkbox,
+body.hud-off .badge,
+body.hud-off .viewport-overlay,
+body.hud-off .aggregate-card-overlay,
+body.hud-off #playlist-bar,
+body.hud-off .detail-play-controls {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.2s ease !important;
+}
+
+/* Modal Fullscreen Mode */
+#detail-modal:fullscreen .modal-backdrop,
+#detail-modal:-webkit-full-screen .modal-backdrop {
+  padding: 0 !important;
+}
+
+#detail-modal:fullscreen .modal-content,
+#detail-modal:-webkit-full-screen .modal-content {
+  max-width: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+#detail-modal:fullscreen .modal-sidebar,
+#detail-modal:-webkit-full-screen .modal-sidebar {
+  display: none !important;
+}
+
+/* Job Queue Item Hover Mini-buttons */
+.job-item .btn-cancel-job,
+.job-item .btn-delete-job {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.job-item:hover .btn-cancel-job,
+.job-item:hover .btn-delete-job {
+  opacity: 1;
+}
+
