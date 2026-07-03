@@ -17,7 +17,11 @@ async def browse_media(
     sort_by: str = "creation_date",
     sort_dir: str = "desc"
 ) -> BrowseResponse:
-    matching_ids, media_next_seg, media_all_tags = await get_matching_media_ids(db, filter_pattern, media_type)
+    matching_ids, media_next_seg, media_all_tags, group_parent = await get_matching_media_ids(db, filter_pattern, media_type)
+
+    total_cursor = await db.execute("SELECT COUNT(*) FROM media")
+    total_row = await total_cursor.fetchone()
+    total_library_items = total_row[0] if total_row else 0
 
     # Group by next segment
     groups: Dict[str, List[str]] = {}
@@ -53,7 +57,29 @@ async def browse_media(
             if not filter_pattern or filter_pattern == "All":
                 full_filter = seg_label
             else:
-                full_filter = f"{filter_pattern}.{seg_label}"
+                parent = group_parent.get(seg_label)
+                tokens = filter_pattern.split()
+                new_tokens = []
+                replaced = False
+                for tok in tokens:
+                    clean_tok = tok[1:] if tok.startswith('+') or tok.startswith('-') or tok.startswith('~') else tok
+                    if clean_tok.lower() == "orphan" or clean_tok.lower().startswith("orphan."):
+                        continue
+                    if parent and clean_tok == parent and not replaced:
+                        if tok.startswith('+'):
+                            new_tokens.append(f"+{parent}.{seg_label}")
+                        else:
+                            new_tokens.append(f"{parent}.{seg_label}")
+                        replaced = True
+                    else:
+                        new_tokens.append(tok)
+                if not replaced:
+                    if not new_tokens:
+                        full_filter = seg_label
+                    else:
+                        full_filter = " ".join(new_tokens) + f" {seg_label}"
+                else:
+                    full_filter = " ".join(new_tokens)
 
             results.append(AggregateResult(
                 label=seg_label,
@@ -117,6 +143,7 @@ async def browse_media(
     return BrowseResponse(
         filter=filter_pattern,
         total_items=total_items,
+        total_library_items=total_library_items,
         page=page,
         limit=limit,
         results=paginated_results

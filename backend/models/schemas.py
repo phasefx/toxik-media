@@ -63,6 +63,7 @@ class ItemResult(BaseModel):
 class BrowseResponse(BaseModel):
     filter: Optional[str] = None
     total_items: int
+    total_library_items: int = 0
     page: int
     limit: int
     results: List[Union[AggregateResult, ItemResult]]

@@ -11,6 +11,7 @@ class Store extends EventTarget {
             page: 1,
             limit: 50,
             totalItems: 0,
+            totalLibraryItems: 0,
             hasMore: false,
             isLoading: false,
             selectedIds: new Set(),
@@ -138,6 +139,7 @@ class Store extends EventTarget {
                 results: sortedResults,
                 page: currentPage,
                 totalItems: res.total_items,
+                totalLibraryItems: res.total_library_items !== undefined ? res.total_library_items : this.state.totalLibraryItems,
                 hasMore,
                 isLoading: false
             });

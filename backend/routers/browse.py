@@ -29,7 +29,7 @@ async def download_playlist(
     media_type: Optional[str] = Query(None, description="Filter by media type: image, video, or audio"),
     db: aiosqlite.Connection = Depends(get_db)
 ):
-    matching_ids, _, _ = await get_matching_media_ids(db, filter, media_type)
+    matching_ids, _, _, _ = await get_matching_media_ids(db, filter, media_type)
 
     if not matching_ids:
         return Response(

@@ -91,7 +91,6 @@ async def get_all_tags(db: aiosqlite.Connection) -> List[TagItem]:
     """
     Returns all tags with count of associated media items (including descendant tags).
     """
-    await sync_orphan_tags(db)
     cursor = await db.execute("""
         SELECT t.id, t.full_tag, t.depth, t.parent_tag,
                (SELECT COUNT(DISTINCT mt.media_id)
@@ -238,7 +237,7 @@ def match_tag_pattern(tag_str: str, filter_pattern: str) -> Optional[Tuple[str, 
     next_seg = tag_segs[matched_end_idx] if matched_end_idx < len(tag_segs) else None
     return matched_prefix, next_seg
 
-async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optional[str], media_type: Optional[str] = None) -> Tuple[Set[str], Dict[str, str], Dict[str, List[str]]]:
+async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optional[str], media_type: Optional[str] = None) -> Tuple[Set[str], Dict[str, str], Dict[str, List[str]], Dict[str, str]]:
     """
     Finds all media IDs matching filter_pattern and optionally media_type.
     Supports multi-tag inclusion (+tag or tag) and exclusion (-tag), with default -orphan exclusion.
@@ -246,9 +245,8 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
       - matching_media_ids: set of media_id
       - media_next_segment: dict mapping media_id -> next_segment
       - media_all_tags: dict mapping media_id -> list of all full_tag strings for that media
+      - group_parent: dict mapping next_segment -> matching inclusion pattern that produced it
     """
-    await sync_orphan_tags(db)
-
     valid_media_ids = None
     if media_type:
         type_cursor = await db.execute("SELECT id FROM media WHERE media_type = ?", (media_type,))
@@ -305,6 +303,7 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
 
     matching_media_ids: Set[str] = set()
     media_next_segment: Dict[str, str] = {}
+    group_parent: Dict[str, str] = {}
 
     for mid, tags in media_all_tags.items():
         excluded = False
@@ -324,6 +323,7 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
         else:
             all_inc_matched = True
             best_next_seg = None
+            best_inc_pat = None
             for inc_pat in inc_patterns:
                 pat_matched = False
                 for tag_str in tags:
@@ -333,12 +333,15 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
                         _, next_seg = res
                         if next_seg is not None and best_next_seg is None:
                             best_next_seg = next_seg
+                            best_inc_pat = inc_pat
                 if not pat_matched:
                     all_inc_matched = False
                     break
             if all_inc_matched:
                 matching_media_ids.add(mid)
                 media_next_segment[mid] = best_next_seg
+                if best_next_seg and best_next_seg not in group_parent and best_inc_pat:
+                    group_parent[best_next_seg] = best_inc_pat
 
-    return matching_media_ids, media_next_segment, media_all_tags
+    return matching_media_ids, media_next_segment, media_all_tags, group_parent
 

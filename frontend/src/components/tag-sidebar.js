@@ -287,7 +287,7 @@ export class TagSidebar {
                          style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; background: ${isAllActive ? 'rgba(0, 240, 255, 0.15)' : 'transparent'}; border: 1px solid ${isAllActive ? 'var(--accent-cyan)' : 'transparent'}; margin-bottom: 8px; font-weight: 600; min-height: 38px;">
                       <span>🌟 All Media</span>
                       <span class="badge" style="background: ${isAllActive ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.08)'}; color: ${isAllActive ? '#000' : 'var(--text-secondary)'};">
-                        ${store.get('totalItems')}
+                        ${store.get('totalLibraryItems') || store.get('totalItems')}
                       </span>
                     </div>
                     ${this.renderTree(tree)}
