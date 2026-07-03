@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     comfyui_host: str = "localhost"
     comfyui_port: int = 9988
     comfyui_workflow_dir: Optional[Path] = None
+    comfyui_output_dir: Optional[Path] = None
     auto_unload: bool = True
 
     class Config:
@@ -42,6 +43,12 @@ class Settings(BaseSettings):
             self.thumb_dir = Path(self.thumb_dir).resolve()
         self.thumb_dir.mkdir(parents=True, exist_ok=True)
 
+        if self.comfyui_output_dir is None:
+            self.comfyui_output_dir = self.data_dir / "comfyui_outputs"
+        else:
+            self.comfyui_output_dir = Path(self.comfyui_output_dir).resolve()
+        self.comfyui_output_dir.mkdir(parents=True, exist_ok=True)
+
         self.workflows_dir = Path(self.workflows_dir).resolve()
         self.workflows_dir.mkdir(parents=True, exist_ok=True)
         return self
@@ -51,6 +58,7 @@ class Settings(BaseSettings):
         data_dir: Optional[Union[str, Path]] = None,
         db_path: Optional[Union[str, Path]] = None,
         thumb_dir: Optional[Union[str, Path]] = None,
+        comfyui_output_dir: Optional[Union[str, Path]] = None,
         host: Optional[str] = None,
         port: Optional[int] = None,
     ):
@@ -61,20 +69,52 @@ class Settings(BaseSettings):
                 self.db_path = self.data_dir / "toxik.db"
             if thumb_dir is None:
                 self.thumb_dir = self.data_dir / "thumbs"
+            if comfyui_output_dir is None and (self.comfyui_output_dir is None or self.comfyui_output_dir.name in ("comfyui_outputs", "comfyui_output")):
+                self.comfyui_output_dir = self.data_dir / "comfyui_outputs"
         if db_path is not None:
             self.db_path = Path(db_path).resolve()
         if thumb_dir is not None:
             self.thumb_dir = Path(thumb_dir).resolve()
+        if comfyui_output_dir is not None:
+            self.comfyui_output_dir = Path(comfyui_output_dir).resolve()
 
         if self.db_path:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
         if self.thumb_dir:
             self.thumb_dir.mkdir(parents=True, exist_ok=True)
+        if self.comfyui_output_dir:
+            self.comfyui_output_dir.mkdir(parents=True, exist_ok=True)
 
         if host is not None:
             self.host = host
         if port is not None:
             self.port = int(port)
+
+    def is_protected_from_ingest(self, path: Union[str, Path]) -> bool:
+        """Check if a path is inside the protected data directory, while exempting ComfyUI output dirs."""
+        try:
+            path_res = Path(path).resolve()
+            data_res = self.data_dir.resolve()
+
+            is_inside_data = path_res.is_relative_to(data_res) if hasattr(path_res, "is_relative_to") else str(path_res).startswith(str(data_res))
+            if not is_inside_data:
+                return False
+
+            exempted_dirs = [
+                (self.data_dir / "comfyui_outputs").resolve(),
+                (self.data_dir / "comfyui_output").resolve(),
+            ]
+            if self.comfyui_output_dir:
+                exempted_dirs.append(Path(self.comfyui_output_dir).resolve())
+
+            for ex_dir in exempted_dirs:
+                is_exempt = path_res.is_relative_to(ex_dir) if hasattr(path_res, "is_relative_to") else str(path_res).startswith(str(ex_dir))
+                if is_exempt or path_res == ex_dir:
+                    return False
+
+            return True
+        except Exception:
+            return False
 
 settings = Settings()
 

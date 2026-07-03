@@ -58,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("--host", default=settings.host, help="Host interface to bind server to")
     parser.add_argument("--db-path", help="Path to SQLite database")
     parser.add_argument("--thumb-dir", help="Path to thumbnails directory")
+    parser.add_argument("--comfyui-output-dir", help="Path to ComfyUI output directory")
     parser.add_argument("--no-reload", action="store_true", help="Disable uvicorn auto-reload")
 
     args, _ = parser.parse_known_args()
@@ -72,11 +73,14 @@ if __name__ == "__main__":
         os.environ["TOXIK_DB_PATH"] = str(args.db_path)
     if args.thumb_dir:
         os.environ["TOXIK_THUMB_DIR"] = str(args.thumb_dir)
+    if args.comfyui_output_dir:
+        os.environ["TOXIK_COMFYUI_OUTPUT_DIR"] = str(args.comfyui_output_dir)
 
     settings.update_from_args(
         data_dir=args.data_dir,
         db_path=args.db_path,
         thumb_dir=args.thumb_dir,
+        comfyui_output_dir=args.comfyui_output_dir,
         host=args.host,
         port=args.port,
     )

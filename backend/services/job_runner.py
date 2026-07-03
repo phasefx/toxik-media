@@ -176,7 +176,7 @@ async def _execute_job(db, job: dict):
         completed = 0
         all_output_ids = []
 
-        output_dir = settings.data_dir / "comfyui_outputs"
+        output_dir = settings.comfyui_output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         for iteration in range(total_iterations):

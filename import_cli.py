@@ -127,6 +127,11 @@ def parse_args():
         default=None,
         help="Path to the thumbnails directory (overrides data-dir default)."
     )
+    parser.add_argument(
+        "--comfyui-output-dir",
+        default=None,
+        help="Path to ComfyUI output directory."
+    )
     return parser.parse_args()
 
 def scan_paths(paths: List[str]) -> Tuple[List[str], int, int, int]:
@@ -136,40 +141,26 @@ def scan_paths(paths: List[str]) -> Tuple[List[str], int, int, int]:
     img_count = 0
     vid_count = 0
 
-    data_dir_resolved = settings.data_dir.resolve()
-
     for p in paths:
         path = Path(p).resolve()
         if not path.exists():
             console.print(f"[yellow]⚠️  Warning: Path does not exist and will be skipped:[/yellow] [dim]{p}[/dim]")
             continue
 
-        try:
-            if path.is_relative_to(data_dir_resolved):
-                console.print(f"[yellow]⚠️  Warning: Skipping target inside Toxik data directory:[/yellow] [dim]{p}[/dim]")
-                continue
-        except AttributeError:
-            if str(path).startswith(str(data_dir_resolved)):
-                console.print(f"[yellow]⚠️  Warning: Skipping target inside Toxik data directory:[/yellow] [dim]{p}[/dim]")
-                continue
+        if settings.is_protected_from_ingest(path):
+            console.print(f"[yellow]⚠️  Warning: Skipping target inside protected Toxik data directory:[/yellow] [dim]{p}[/dim]")
+            continue
 
         targets = []
         if path.is_file():
             targets.append(path)
         elif path.is_dir():
             for root, dirs, files in os.walk(path):
-                try:
-                    dirs[:] = [d for d in dirs if not Path(root, d).resolve().is_relative_to(data_dir_resolved)]
-                except AttributeError:
-                    dirs[:] = [d for d in dirs if not str(Path(root, d).resolve()).startswith(str(data_dir_resolved))]
+                dirs[:] = [d for d in dirs if not settings.is_protected_from_ingest(Path(root, d))]
                 for file in files:
                     fpath = Path(root, file).resolve()
-                    try:
-                        if fpath.is_relative_to(data_dir_resolved):
-                            continue
-                    except AttributeError:
-                        if str(fpath).startswith(str(data_dir_resolved)):
-                            continue
+                    if settings.is_protected_from_ingest(fpath):
+                        continue
                     targets.append(fpath)
 
         for fpath in targets:
@@ -469,6 +460,7 @@ def main():
         data_dir=args.data_dir,
         db_path=args.db_path,
         thumb_dir=args.thumb_dir,
+        comfyui_output_dir=args.comfyui_output_dir,
     )
 
     if args.resume:

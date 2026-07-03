@@ -30,6 +30,10 @@ NODE_ROLES = {
         ("TextEncodeQwenImageEdit", "prompt", "positive"),
         ("TextEncodeQwenImageEditPlus", "prompt", "positive"),
         ("VibeVoiceSingleSpeakerNode", "text", None),
+        ("CLIPTextEncode", "text", None),
+        ("PrimitiveStringMultiline", "value", None),
+        ("TextEncodeQwenImageEdit", "prompt", None),
+        ("TextEncodeQwenImageEditPlus", "prompt", None),
     ],
     "neg_prompt": [
         ("CLIPTextEncode", "text", "negative"),
@@ -205,6 +209,56 @@ def discover_form_fields(
     )
     if up_id:
         add("Megapixels", up_id, "megapixels", "number")
+
+    # Fallback scan for all remaining primitive inputs
+    for nid, node in nodes.items():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type", "")
+        title = node.get("_meta", {}).get("title", ct)
+        for fname, fval in node.get("inputs", {}).items():
+            if isinstance(fval, list) or fname in ("seed", "noise_seed", "filename_prefix") or fname.startswith("_"):
+                continue
+            if any(f.node_id == nid and f.field_name == fname for f in fields):
+                continue
+            if fname in ("text", "prompt", "value") or ct in ("CLIPTextEncode", "PrimitiveStringMultiline", "TextEncodeQwenImageEdit", "TextEncodeQwenImageEditPlus", "VibeVoiceSingleSpeakerNode"):
+                if "neg" in title.lower() or "neg" in fname.lower():
+                    label = "Negative Prompt"
+                    ftype = "textarea"
+                else:
+                    label = title if (len(title) < 35 and title != ct) else "Prompt"
+                    ftype = "textarea"
+            elif isinstance(fval, (int, float)) and not isinstance(fval, bool):
+                label = fname.replace("_", " ").title()
+                ftype = "number"
+            elif isinstance(fval, bool):
+                label = fname.replace("_", " ").title()
+                ftype = "checkbox"
+            else:
+                label = fname.replace("_", " ").title()
+                ftype = "textarea" if (isinstance(fval, str) and (len(fval) > 50 or "\n" in fval)) else "string"
+            add(label, nid, fname, ftype)
+
+    def _field_priority(ff: FormField) -> int:
+        name = ff.field_name.lower()
+        lbl = ff.label.lower()
+        if any(p in name or p in lbl for p in ("pos", "prompt", "text", "value", "caption")):
+            if "neg" in name or "neg" in lbl:
+                return 15
+            return 10
+        if "neg" in name or "neg" in lbl:
+            return 15
+        if any(d in name or d in lbl for d in ("width", "height", "length", "batch", "megapixels", "duration", "frames", "fps")):
+            return 30
+        if any(s in name or s in lbl for s in ("steps", "cfg", "denoise", "shift", "guidance", "strength")):
+            return 50
+        if any(s in name or s in lbl for s in ("sampler", "scheduler", "algo")):
+            return 70
+        if any(m in name or m in lbl for m in ("name", "model", "unet", "clip", "vae", "lora", "dtype", "device", "weight")):
+            return 85
+        return 80
+
+    fields.sort(key=_field_priority)
 
     # Loop control virtual fields (node_id="" means handled by runner, not patched directly into node inputs)
     if has_seed:
