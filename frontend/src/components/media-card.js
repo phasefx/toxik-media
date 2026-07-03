@@ -15,7 +15,7 @@ export function renderMediaCard(item, viewMode = 'grid') {
     }
 
     const animThumbs = store.get('animThumbs', true) !== false;
-    const cardClass = viewMode === 'montage' ? 'montage-card' : 'card';
+    const cardClass = viewMode === 'montage' ? 'montage-card media-card' : 'card media-card';
     const imgClass = viewMode === 'montage' ? 'montage-img' : 'card-img';
     const thumbUrl = item.thumb_url || '/thumbs/placeholder.webp';
 
@@ -266,5 +266,29 @@ export function attachMediaCardEvents(container) {
                 console.error('Failed to open media detail:', err);
             }
         });
+    });
+}
+
+export function updateMediaCardSelections(container, selectedIds = new Set()) {
+    container.querySelectorAll('.card, .montage-card, .media-card').forEach(card => {
+        if (card.classList.contains('card-aggregate')) return;
+        const id = card.getAttribute('data-id');
+        if (!id) return;
+        const isSelected = selectedIds.has(id);
+        const cb = card.querySelector('.select-checkbox');
+
+        if (isSelected) {
+            card.classList.add('selected');
+            if (cb) {
+                cb.style.background = 'var(--accent-cyan)';
+                cb.innerHTML = '<span style="color: #000; font-weight: 800; font-size: 0.85rem;">✓</span>';
+            }
+        } else {
+            card.classList.remove('selected');
+            if (cb) {
+                cb.style.background = 'rgba(0,0,0,0.6)';
+                cb.innerHTML = '';
+            }
+        }
     });
 }

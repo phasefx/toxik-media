@@ -6,8 +6,8 @@ import './styles/viewport.css';
 import { store } from './state/store.js';
 import { TagSidebar } from './components/tag-sidebar.js';
 import { FilterBar } from './components/filter-bar.js';
-import { renderMediaCard, attachMediaCardEvents } from './components/media-card.js';
-import { renderAggregateCard, attachAggregateCardEvents } from './components/aggregate-card.js';
+import { renderMediaCard, attachMediaCardEvents, updateMediaCardSelections } from './components/media-card.js';
+import { renderAggregateCard, attachAggregateCardEvents, updateAggregateCardSelections } from './components/aggregate-card.js';
 import { DetailModal } from './components/detail-modal.js';
 import { BatchTagBar } from './components/batch-tag-bar.js';
 import { GenerationPanel } from './components/generation-panel.js';
@@ -61,17 +61,8 @@ class App {
                 this.renderGallery(state);
             } else if (changed && changed.selectedIds) {
                 const selected = state.selectedIds || new Set();
-                this.galleryGrid.querySelectorAll('.media-card').forEach(card => {
-                    const id = card.getAttribute('data-id');
-                    const cb = card.querySelector('.select-checkbox');
-                    if (selected.has(id)) {
-                        card.classList.add('selected');
-                        if (cb) cb.checked = true;
-                    } else {
-                        card.classList.remove('selected');
-                        if (cb) cb.checked = false;
-                    }
-                });
+                updateMediaCardSelections(this.galleryGrid, selected);
+                updateAggregateCardSelections(this.galleryGrid, selected);
             }
             if (changed && changed.activeModalItem !== undefined) {
                 if (state.viewMode === 'viewport' && state.activeModalItem) {

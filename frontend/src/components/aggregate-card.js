@@ -12,7 +12,7 @@ export function renderAggregateCard(item, viewMode = 'grid') {
     const isPartiallySelected = selectedCount > 0 && selectedCount < groupIds.length;
     const isSelected = isAllSelected || isPartiallySelected;
 
-    const cardClass = viewMode === 'montage' ? 'montage-card card-aggregate' : 'card card-aggregate';
+    const cardClass = viewMode === 'montage' ? 'montage-card media-card card-aggregate' : 'card media-card card-aggregate';
     const imgClass = viewMode === 'montage' ? 'montage-img' : 'card-img';
     const rep = item.representative;
     const thumbUrl = rep ? (rep.thumb_url || '/thumbs/placeholder.webp') : '';
@@ -80,5 +80,29 @@ export function attachAggregateCardEvents(container) {
             const filter = card.getAttribute('data-filter');
             store.setFilter(filter);
         });
+    });
+}
+
+export function updateAggregateCardSelections(container, selectedIds = new Set()) {
+    container.querySelectorAll('.card-aggregate').forEach(card => {
+        const filter = card.getAttribute('data-filter') || card.getAttribute('data-group-filter');
+        if (!filter) return;
+        const groupIds = aggregateGroupIds.get(filter) || [];
+        const selectedCount = groupIds.filter(id => selectedIds.has(id)).length;
+        const isAllSelected = groupIds.length > 0 && selectedCount === groupIds.length;
+        const isPartiallySelected = selectedCount > 0 && selectedCount < groupIds.length;
+        const isSelected = isAllSelected || isPartiallySelected;
+
+        if (isSelected) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+
+        const box = card.querySelector('.aggregate-select-checkbox');
+        if (box) {
+            box.style.background = isAllSelected ? 'var(--accent-cyan)' : (isPartiallySelected ? 'rgba(0, 240, 255, 0.4)' : 'rgba(0,0,0,0.6)');
+            box.innerHTML = isAllSelected ? '<span style="color: #000; font-weight: 800; font-size: 0.85rem;">✓</span>' : (isPartiallySelected ? '<span style="color: #fff; font-weight: 800; font-size: 0.75rem;">─</span>' : '');
+        }
     });
 }
