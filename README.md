@@ -81,7 +81,35 @@ For importing large local folders directly from terminal with rich progress bars
 ./import_cli.py /path/to/media/folder --dry-run
 ```
 
+### 5. Running Multiple Instances & Configuring Collections
+
+You can run multiple instances of Toxik simultaneously with different media collections, listen addresses, and ports.
+
+#### Using `toxik_inside_tmux.sh` (Recommended)
+Launch separate tmux sessions with distinct ports and data directories:
+```bash
+# Instance 1: Default Collection (Port 8000 / UI 5173 / Session toxik)
+./toxik_inside_tmux.sh
+
+# Instance 2: Movies Collection (Port 8001 / UI 5174 / Session toxik-movies)
+./toxik_inside_tmux.sh -s toxik-movies -d ./data-movies -p 8001 --frontend-port 5174
+```
+
+#### Manual Terminal Startup or Environment Variables
+You can pass CLI flags directly or set `TOXIK_*` environment variables:
+```bash
+# Backend API (Instance 2)
+python -m backend.main --data-dir ./data-movies --port 8001 --host 0.0.0.0
+
+# Frontend UI (Instance 2 automatically proxies to Backend on 8001)
+TOXIK_PORT=8001 TOXIK_FRONTEND_PORT=5174 npm run dev --prefix frontend
+
+# Ingesting Media into Instance 2 Collection
+./import_cli.py /path/to/movies -d ./data-movies -t Movie
+```
+
 ---
+
 
 ## Tagging Architecture & Examples
 

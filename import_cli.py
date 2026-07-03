@@ -112,6 +112,21 @@ def parse_args():
         action="store_true",
         help="Print real-time status logs for every individual file processed."
     )
+    parser.add_argument(
+        "-d", "--data-dir",
+        default=None,
+        help="Path to the data directory (defaults to TOXIK_DATA_DIR env var or ./data)."
+    )
+    parser.add_argument(
+        "--db-path",
+        default=None,
+        help="Path to the SQLite database file (overrides data-dir default)."
+    )
+    parser.add_argument(
+        "--thumb-dir",
+        default=None,
+        help="Path to the thumbnails directory (overrides data-dir default)."
+    )
     return parser.parse_args()
 
 def scan_paths(paths: List[str]) -> Tuple[List[str], int, int, int]:
@@ -393,6 +408,11 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
 
 def main():
     args = parse_args()
+    settings.update_from_args(
+        data_dir=args.data_dir,
+        db_path=args.db_path,
+        thumb_dir=args.thumb_dir,
+    )
 
     if args.resume:
         state_file = _get_state_file()

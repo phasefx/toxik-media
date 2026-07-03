@@ -248,7 +248,7 @@ async def extract_video_frame(db: aiosqlite.Connection, media_id: str, mode: str
         out_path = parent_dir / out_name
     except Exception:
         from backend.config import settings
-        fallback_dir = settings.thumb_dir.parent / "extracted_frames"
+        fallback_dir = settings.data_dir / "extracted_frames"
         fallback_dir.mkdir(parents=True, exist_ok=True)
         out_path = fallback_dir / out_name
 
@@ -309,11 +309,15 @@ async def delete_media_item(db: aiosqlite.Connection, media_id: str, delete_file
             logger.error(f"Failed to delete file {row['filepath']}: {e}")
 
     if row["thumb_path"]:
-        # thumb_path is relative like 'thumbs/uuid.webp'
-        thumb_full = Path(row["thumb_path"]) if os.path.isabs(row["thumb_path"]) else Path(row["filepath"]).parent.parent / "data" / row["thumb_path"]
-        # or use settings.thumb_dir / f"{media_id}.webp"
         from backend.config import settings
+        # thumb_path is relative like 'thumbs/uuid.webp'
+        thumb_full = Path(row["thumb_path"]) if os.path.isabs(row["thumb_path"]) else settings.data_dir / row["thumb_path"]
         thumb_file = settings.thumb_dir / f"{media_id}.webp"
+        if thumb_full.exists():
+            try:
+                os.remove(thumb_full)
+            except Exception:
+                pass
         if thumb_file.exists():
             try:
                 os.remove(thumb_file)

@@ -1,24 +1,21 @@
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-
 THUMB_DIR = DATA_DIR / "thumbs"
-THUMB_DIR.mkdir(parents=True, exist_ok=True)
-
 WORKFLOWS_DIR = BASE_DIR / "workflows"
-WORKFLOWS_DIR.mkdir(parents=True, exist_ok=True)
 
 class Settings(BaseSettings):
     app_name: str = "Toxik"
     host: str = "0.0.0.0"
     port: int = 8000
-    db_path: Path = DATA_DIR / "toxik.db"
-    thumb_dir: Path = THUMB_DIR
+    data_dir: Path = DATA_DIR
+    db_path: Optional[Path] = None
+    thumb_dir: Optional[Path] = None
     workflows_dir: Path = WORKFLOWS_DIR
     max_concurrent_jobs: int = 1
     comfyui_host: str = "localhost"
@@ -29,4 +26,55 @@ class Settings(BaseSettings):
     class Config:
         env_prefix = "TOXIK_"
 
+    @model_validator(mode="after")
+    def setup_paths(self):
+        self.data_dir = Path(self.data_dir).resolve()
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        if self.db_path is None:
+            self.db_path = self.data_dir / "toxik.db"
+        else:
+            self.db_path = Path(self.db_path).resolve()
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if self.thumb_dir is None:
+            self.thumb_dir = self.data_dir / "thumbs"
+        else:
+            self.thumb_dir = Path(self.thumb_dir).resolve()
+        self.thumb_dir.mkdir(parents=True, exist_ok=True)
+
+        self.workflows_dir = Path(self.workflows_dir).resolve()
+        self.workflows_dir.mkdir(parents=True, exist_ok=True)
+        return self
+
+    def update_from_args(
+        self,
+        data_dir: Optional[Union[str, Path]] = None,
+        db_path: Optional[Union[str, Path]] = None,
+        thumb_dir: Optional[Union[str, Path]] = None,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+    ):
+        if data_dir is not None:
+            self.data_dir = Path(data_dir).resolve()
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+            if db_path is None:
+                self.db_path = self.data_dir / "toxik.db"
+            if thumb_dir is None:
+                self.thumb_dir = self.data_dir / "thumbs"
+        if db_path is not None:
+            self.db_path = Path(db_path).resolve()
+        if thumb_dir is not None:
+            self.thumb_dir = Path(thumb_dir).resolve()
+
+        if self.db_path:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.thumb_dir:
+            self.thumb_dir.mkdir(parents=True, exist_ok=True)
+
+        if host is not None:
+            self.host = host
+        if port is not None:
+            self.port = int(port)
+
 settings = Settings()
+

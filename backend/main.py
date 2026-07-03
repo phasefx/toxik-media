@@ -48,5 +48,38 @@ async def health_check():
     return {"status": "ok", "app": settings.app_name}
 
 if __name__ == "__main__":
+    import argparse
+    import os
     import uvicorn
-    uvicorn.run("backend.main:app", host=settings.host, port=settings.port, reload=True)
+
+    parser = argparse.ArgumentParser(description="Toxik Backend Server")
+    parser.add_argument("-d", "--data-dir", help="Path to data directory for this collection")
+    parser.add_argument("-p", "--port", type=int, default=settings.port, help="Port to bind server to")
+    parser.add_argument("--host", default=settings.host, help="Host interface to bind server to")
+    parser.add_argument("--db-path", help="Path to SQLite database")
+    parser.add_argument("--thumb-dir", help="Path to thumbnails directory")
+    parser.add_argument("--no-reload", action="store_true", help="Disable uvicorn auto-reload")
+
+    args, _ = parser.parse_known_args()
+
+    if args.data_dir:
+        os.environ["TOXIK_DATA_DIR"] = str(args.data_dir)
+    if args.port:
+        os.environ["TOXIK_PORT"] = str(args.port)
+    if args.host:
+        os.environ["TOXIK_HOST"] = str(args.host)
+    if args.db_path:
+        os.environ["TOXIK_DB_PATH"] = str(args.db_path)
+    if args.thumb_dir:
+        os.environ["TOXIK_THUMB_DIR"] = str(args.thumb_dir)
+
+    settings.update_from_args(
+        data_dir=args.data_dir,
+        db_path=args.db_path,
+        thumb_dir=args.thumb_dir,
+        host=args.host,
+        port=args.port,
+    )
+
+    uvicorn.run("backend.main:app", host=settings.host, port=settings.port, reload=not args.no_reload)
+
