@@ -223,6 +223,8 @@ def discover_form_fields(
         if not isinstance(node, dict):
             continue
         ct = node.get("class_type", "")
+        if ct in ("LoadImage", "VHS_LoadImagePath", "LoadImageMask", "VHS_LoadVideo", "LoadVideo", "LoadAudio", "VHS_LoadAudio", "SaveImage", "SaveImageWebsocket", "VHS_VideoCombine", "SaveWEBM", "SaveVideo", "SaveMP4", "SaveAnimatedWEBP", "SaveAnimatedPNG", "SaveGIF", "SaveAudio", "VHS_SaveAudio", "PreviewImage"):
+            continue
         title = node.get("_meta", {}).get("title", ct)
         for fname, fval in node.get("inputs", {}).items():
             if isinstance(fval, list) or fname in ("seed", "noise_seed", "filename_prefix") or fname.startswith("_"):
@@ -465,6 +467,23 @@ def collect_outputs(history_entry: dict, output_ext: str) -> List[str]:
 # ─────────────────────────────────────────────────────────────────────────────
 # COMFYUI ASYNC HTTP CLIENT
 # ─────────────────────────────────────────────────────────────────────────────
+
+async def upload_to_comfyui(filepath: Path, host: str, port: int) -> str:
+    """Upload a local file (image, video, audio) to ComfyUI's input directory via POST /upload/image."""
+    import aiohttp
+    url = f"http://{host}:{port}/upload/image"
+    data = aiohttp.FormData()
+    with open(filepath, "rb") as f:
+        data.add_field("image", f, filename=filepath.name)
+        data.add_field("type", "input")
+        data.add_field("overwrite", "true")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=data) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    raise RuntimeError(f"ComfyUI rejected file upload for {filepath.name}: {resp.status} {text}")
+                res = await resp.json()
+                return res.get("name", filepath.name)
 
 async def submit_to_comfyui(nodes: dict, host: str, port: int, front: bool = False) -> str:
     """POST /prompt to ComfyUI, returns prompt_id."""

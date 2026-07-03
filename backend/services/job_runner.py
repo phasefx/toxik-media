@@ -199,7 +199,7 @@ async def _execute_job(db, job: dict):
     from backend.services.comfyui_service import (
         discover_workflow, assemble, apply_patches, build_prefix,
         collect_outputs, submit_to_comfyui, poll_comfyui_history,
-        download_comfyui_output, Patch
+        download_comfyui_output, upload_to_comfyui, Patch
     )
     from backend.services.media_service import import_media
 
@@ -230,9 +230,21 @@ async def _execute_job(db, job: dict):
             await _run_utility_workflow(db, job_id, wf, inputs)
             return
 
+        front = inputs.pop("_front", False)
+
         count = 1
         chain_count = 1
-        front = inputs.pop("_front", False)
+        inputs_copy = dict(inputs)
+        for key in ("_count", "Count", "_chain", "Chain"):
+            if key in inputs_copy:
+                val = inputs_copy.pop(key)
+                if key in ("_count", "Count"):
+                    try: count = max(1, int(float(val)))
+                    except: pass
+                else:
+                    try: chain_count = max(1, int(float(val)))
+                    except: pass
+
         patchable_values = {}
 
         for i, ff in enumerate(wf.form_fields):
@@ -242,10 +254,10 @@ async def _execute_job(db, job: dict):
 
             if key == "_count":
                 try: count = max(1, int(float(val)))
-                except: count = 1
+                except: pass
             elif key == "_chain":
                 try: chain_count = max(1, int(float(val)))
-                except: chain_count = 1
+                except: pass
             elif key.startswith("_"):
                 continue
             else:
@@ -294,6 +306,14 @@ async def _execute_job(db, job: dict):
                 values["audio_input"] = inputs["audio_input"]
             if "mask_input" in inputs:
                 values["mask_input"] = inputs["mask_input"]
+
+            for pk, pv in list(values.items()):
+                if isinstance(pv, str) and os.path.exists(pv) and any(pv.lower().endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v", ".wav", ".mp3", ".flac", ".ogg")):
+                    try:
+                        logger.info(f"Uploading file {pv} to ComfyUI for field {pk}")
+                        values[pk] = await upload_to_comfyui(Path(pv), settings.comfyui_host, settings.comfyui_port)
+                    except Exception as e:
+                        logger.warning(f"Failed to upload {pv} to ComfyUI: {e}")
 
             form_patches = [
                 Patch(node_id=ff.node_id, field=ff.field_name, source=f"form_{i}")

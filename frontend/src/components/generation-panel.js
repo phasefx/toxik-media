@@ -181,27 +181,46 @@ export class GenerationPanel {
 
             // 2. Dynamic Form Fields (from discover_form_fields)
             if (currentWorkflow.form_fields && currentWorkflow.form_fields.length > 0) {
+                let stickyValues = {};
+                try {
+                    const stickyRaw = localStorage.getItem('toxik_wf_sticky_' + currentWorkflow.id);
+                    if (stickyRaw) {
+                        const parsed = JSON.parse(stickyRaw);
+                        if (Date.now() - (parsed.timestamp || 0) < 30 * 60 * 1000) {
+                            stickyValues = parsed.values || {};
+                        } else {
+                            localStorage.removeItem('toxik_wf_sticky_' + currentWorkflow.id);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse sticky values:', e);
+                }
+
                 currentWorkflow.form_fields.forEach((ff, idx) => {
                     let fieldHtml = '';
                     const isLong = ff.type === 'textarea' || (ff.label && ff.label.toLowerCase().includes('prompt'));
                     const gridCol = isLong ? 'grid-column: 1 / -1;' : '';
 
+                    const uniqueLabel = ff.node_id ? `${ff.node_id} - ${ff.label}` : ff.label;
+                    let val = stickyValues[uniqueLabel] !== undefined ? stickyValues[uniqueLabel] : (stickyValues[ff.label] !== undefined ? stickyValues[ff.label] : (stickyValues[ff.field_name] !== undefined ? stickyValues[ff.field_name] : ff.default));
+                    if (val === undefined || val === null) val = ff.default;
+
                     if (ff.type === 'textarea') {
-                        fieldHtml = `<textarea id="ff-${idx}" class="input" style="height: 85px; padding: 12px; resize: vertical; font-size: 0.9rem;" placeholder="${ff.default || ''}">${ff.default || ''}</textarea>`;
+                        fieldHtml = `<textarea id="ff-${idx}" class="input" style="height: 85px; padding: 12px; resize: vertical; font-size: 0.9rem;" placeholder="${ff.default || ''}">${val || ''}</textarea>`;
                     } else if (ff.type === 'number') {
-                        fieldHtml = `<input type="number" id="ff-${idx}" class="input" value="${ff.default || 0}" style="height: 40px; font-size: 0.9rem;" />`;
+                        fieldHtml = `<input type="number" id="ff-${idx}" class="input" value="${val !== undefined && val !== null ? val : 0}" style="height: 40px; font-size: 0.9rem;" />`;
                     } else if (ff.type === 'combo' || ff.type === 'combo_number') {
                         const opts = (ff.options || []).map(opt => `
-                          <option value="${opt}" ${String(opt) === String(ff.default) ? 'selected' : ''}>${opt}</option>
+                          <option value="${opt}" ${String(opt) === String(val) ? 'selected' : ''}>${opt}</option>
                         `).join('');
                         fieldHtml = `<select id="ff-${idx}" class="input" style="height: 40px; cursor: pointer; font-size: 0.9rem;">${opts}</select>`;
                     } else if (ff.type === 'checkbox') {
-                        const isChecked = String(ff.default).toLowerCase() === 'true' || ff.default === true || ff.default === 1 || ff.default === '1' || ff.default === 'yes' || ff.default === 'on';
+                        const isChecked = String(val).toLowerCase() === 'true' || val === true || val === 1 || val === '1' || val === 'yes' || val === 'on';
                         fieldHtml = `<input type="checkbox" id="ff-${idx}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px;" />`;
                     } else if (ff.type === 'spacer') {
                         return;
                     } else {
-                        fieldHtml = `<input type="text" id="ff-${idx}" class="input" value="${ff.default || ''}" style="height: 40px; font-size: 0.9rem;" />`;
+                        fieldHtml = `<input type="text" id="ff-${idx}" class="input" value="${val !== undefined && val !== null ? val : ''}" style="height: 40px; font-size: 0.9rem;" />`;
                     }
                     inputsHtml += `
                       <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; ${gridCol}">
@@ -331,9 +350,19 @@ export class GenerationPanel {
 
                 <!-- Right Column: Parameters (Spacious Horizontal Layout) -->
                 <div style="flex: 1; padding: 28px 36px; overflow-y: auto;">
-                  <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
-                    ⚙️ Workflow Parameters
-                  </h4>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                    <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin: 0;">
+                      ⚙️ Workflow Parameters
+                    </h4>
+                    <div style="display: flex; gap: 8px;">
+                      <button id="btn-wf-defaults" class="btn" style="height: 28px; padding: 0 12px; font-size: 0.75rem; background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15);" title="Reset all form widgets to workflow defaults">
+                        🔄 Defaults
+                      </button>
+                      <button id="btn-wf-last" class="btn" style="height: 28px; padding: 0 12px; font-size: 0.75rem; background: rgba(0, 229, 255, 0.15); border-color: rgba(0, 229, 255, 0.3); color: var(--accent-cyan);" title="Pull in values from the last submitted job for this workflow">
+                        ⏪ Last
+                      </button>
+                    </div>
+                  </div>
                   <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 20px;">
                     ${inputsHtml}
                   </div>
@@ -614,6 +643,85 @@ export class GenerationPanel {
             });
         }
 
+        const btnDefaults = this.container.querySelector('#btn-wf-defaults');
+        if (btnDefaults && workflow) {
+            btnDefaults.addEventListener('click', () => {
+                localStorage.removeItem('toxik_wf_sticky_' + workflow.id);
+                if (workflow.form_fields && workflow.form_fields.length > 0) {
+                    workflow.form_fields.forEach((ff, idx) => {
+                        const el = this.container.querySelector(`#ff-${idx}`);
+                        if (el) {
+                            if (ff.type === 'checkbox') {
+                                el.checked = String(ff.default).toLowerCase() === 'true' || ff.default === true || ff.default === 1 || ff.default === '1' || ff.default === 'yes' || ff.default === 'on';
+                            } else {
+                                el.value = ff.default !== undefined && ff.default !== null ? ff.default : '';
+                            }
+                        }
+                    });
+                }
+                const primEl = this.container.querySelector('#input-primary_input');
+                if (primEl) primEl.value = '';
+                const audEl = this.container.querySelector('#input-audio_input');
+                if (audEl) audEl.value = '';
+                btnDefaults.textContent = '✅ Resetted!';
+                setTimeout(() => btnDefaults.textContent = '🔄 Defaults', 1500);
+            });
+        }
+
+        const btnLast = this.container.querySelector('#btn-wf-last');
+        if (btnLast && workflow) {
+            btnLast.addEventListener('click', () => {
+                let lastVals = null;
+                try {
+                    const lastRaw = localStorage.getItem('toxik_wf_last_' + workflow.id);
+                    if (lastRaw) {
+                        lastVals = JSON.parse(lastRaw).values;
+                    }
+                } catch (e) {}
+
+                if (!lastVals) {
+                    const jobs = store.get('jobs') || [];
+                    const lastJob = jobs.find(j => j.workflow_id === workflow.id && j.inputs);
+                    if (lastJob) {
+                        try {
+                            lastVals = typeof lastJob.inputs === 'string' ? JSON.parse(lastJob.inputs) : lastJob.inputs;
+                        } catch (e) {}
+                    }
+                }
+
+                if (lastVals) {
+                    if (workflow.form_fields && workflow.form_fields.length > 0) {
+                        workflow.form_fields.forEach((ff, idx) => {
+                            const el = this.container.querySelector(`#ff-${idx}`);
+                            if (el) {
+                                const uniqueLabel = ff.node_id ? `${ff.node_id} - ${ff.label}` : ff.label;
+                                const val = lastVals[uniqueLabel] !== undefined ? lastVals[uniqueLabel] : (lastVals[ff.label] !== undefined ? lastVals[ff.label] : (lastVals[ff.field_name] !== undefined ? lastVals[ff.field_name] : null));
+                                if (val !== null && val !== undefined) {
+                                    if (ff.type === 'checkbox') {
+                                        el.checked = String(val).toLowerCase() === 'true' || val === true || val === 1 || val === '1' || val === 'yes' || val === 'on';
+                                    } else {
+                                        el.value = val;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    if (lastVals['primary_input']) {
+                        const primEl = this.container.querySelector('#input-primary_input');
+                        if (primEl) primEl.value = lastVals['primary_input'];
+                    }
+                    if (lastVals['audio_input']) {
+                        const audEl = this.container.querySelector('#input-audio_input');
+                        if (audEl) audEl.value = lastVals['audio_input'];
+                    }
+                    btnLast.textContent = '✅ Loaded!';
+                    setTimeout(() => btnLast.textContent = '⏪ Last', 1500);
+                } else {
+                    alert('No previous job values found for this workflow.');
+                }
+            });
+        }
+
         const submitBtn = this.container.querySelector('#btn-submit-job');
         if (submitBtn && workflow) {
             submitBtn.addEventListener('click', async () => {
@@ -662,6 +770,14 @@ export class GenerationPanel {
 
                 const tagsInput = this.container.querySelector('#input-gen-tags');
                 const tags = tagsInput ? tagsInput.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+                try {
+                    const savedData = JSON.stringify({ timestamp: Date.now(), values: inputs });
+                    localStorage.setItem('toxik_wf_sticky_' + workflow.id, savedData);
+                    localStorage.setItem('toxik_wf_last_' + workflow.id, savedData);
+                } catch (err) {
+                    console.warn('Could not save sticky values:', err);
+                }
 
                 const isBatchSubmit = !store.get('activeModalItem') && store.get('selectedIds').size > 0 && String(primEl ? primEl.value : '').startsWith('[Batch:');
 
