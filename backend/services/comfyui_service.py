@@ -17,13 +17,21 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 
 NODE_ROLES = {
-    "load_video": [("VHS_LoadVideo", "video", None)],
+    "load_video": [("VHS_LoadVideo", "video", None), ("LoadVideo", "video", None)],
     "load_image": [("LoadImage", "image", None), ("VHS_LoadImagePath", "image", None)],
-    "load_audio": [("LoadAudio", "audio", None)],
+    "load_audio": [("LoadAudio", "audio", None), ("VHS_LoadAudio", "audio", None)],
     "load_mask":  [("LoadImageMask", "image", None)],
-    "save_video": [("VHS_VideoCombine", "filename_prefix", None), ("SaveWEBM", "filename_prefix", None)],
-    "save_image": [("SaveImage", "filename_prefix", None)],
-    "save_audio": [("SaveAudio", "filename_prefix", None)],
+    "save_video": [
+        ("VHS_VideoCombine", "filename_prefix", None),
+        ("SaveWEBM", "filename_prefix", None),
+        ("SaveVideo", "filename_prefix", None),
+        ("SaveMP4", "filename_prefix", None),
+        ("SaveAnimatedWEBP", "filename_prefix", None),
+        ("SaveAnimatedPNG", "filename_prefix", None),
+        ("SaveGIF", "filename_prefix", None),
+    ],
+    "save_image": [("SaveImage", "filename_prefix", None), ("SaveImageWebsocket", "filename_prefix", None)],
+    "save_audio": [("SaveAudio", "filename_prefix", None), ("VHS_SaveAudio", "filename_prefix", None)],
     "pos_prompt": [
         ("CLIPTextEncode", "text", "positive"),
         ("PrimitiveStringMultiline", "value", "positive"),
