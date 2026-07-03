@@ -239,6 +239,37 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
             "err_count": err_count
         }
 
+    async def _tag_item(filepath: str, media_id: str):
+        tags_to_add = []
+        dir_tag = get_directory_tag(filepath)
+        if dir_tag:
+            tags_to_add.append(dir_tag)
+        if custom_tags:
+            for ct in custom_tags:
+                if ct not in tags_to_add:
+                    tags_to_add.append(ct)
+        if tags_to_add:
+            try:
+                await batch_tag_media(db, [media_id], add_tags=tags_to_add)
+            except Exception as e:
+                if verbose:
+                    console.print(f"[red]⚠️  Failed to apply tags to {filepath}: {e}[/red]")
+
+    if imported_ids:
+        with console.status("[bold magenta]🏷️  Catching up tags for previously imported items...") as status:
+            dir_groups: Dict[str, List[str]] = {}
+            for fpath, mid in imported_ids:
+                dir_tag = get_directory_tag(fpath)
+                if dir_tag:
+                    if dir_tag not in dir_groups:
+                        dir_groups[dir_tag] = []
+                    dir_groups[dir_tag].append(mid)
+            for dir_tag, mids in dir_groups.items():
+                await batch_tag_media(db, mids, add_tags=[dir_tag])
+            if custom_tags:
+                all_ids = [mid for _, mid in imported_ids]
+                await batch_tag_media(db, all_ids, add_tags=custom_tags)
+
     def sig_handler(signum, frame):
         _save_state(idx, files, custom_tags, rebuild_thumbs, get_current_stats(), imported_ids)
         console.print("\n[bold yellow]🛑 Ingestion terminated by signal! Checkpoint saved.[/bold yellow]")
@@ -278,6 +309,7 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
                     if existing:
                         dedup_path_count += 1
                         imported_ids.append((filepath, existing["id"]))
+                        await _tag_item(filepath, existing["id"])
                         if rebuild_thumbs:
                             progress.update(task, description=f"Rebuilding: [cyan]{fname[:22]}[/cyan]...")
                             if await _rebuild_item_thumb(db, filepath, existing["id"], existing["media_type"]):
@@ -310,6 +342,7 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
                 if dup:
                     dedup_hash_count += 1
                     imported_ids.append((filepath, dup["id"]))
+                    await _tag_item(filepath, dup["id"])
                     if rebuild_thumbs:
                         progress.update(task, description=f"Rebuilding: [cyan]{fname[:22]}[/cyan]...")
                         if await _rebuild_item_thumb(db, filepath, dup["id"], dup["media_type"]):
@@ -352,6 +385,7 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
                     await db.commit()
                     new_count += 1
                     imported_ids.append((filepath, media_id))
+                    await _tag_item(filepath, media_id)
                     if verbose:
                         progress.console.print(f"[green]✔ [NEW][/green] {filepath}")
                 except Exception as e:
@@ -361,6 +395,7 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
                     if ex_row:
                         dedup_hash_count += 1
                         imported_ids.append((filepath, ex_row["id"]))
+                        await _tag_item(filepath, ex_row["id"])
                         if rebuild_thumbs:
                             if await _rebuild_item_thumb(db, filepath, ex_row["id"], ex_row["media_type"]):
                                 regen_count += 1
