@@ -239,12 +239,12 @@ body {
   height: auto;
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
+  align-items: stretch;
+  padding: 0;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-glass-heavy);
   z-index: 5;
+  position: relative;
 }
 
 #gallery-container {

@@ -54,7 +54,7 @@ export class FilterBar {
         `).join('');
 
         this.container.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: var(--bg-card); flex-wrap: wrap; width: 100%; min-height: var(--header-height);">
             <!-- Left: Breadcrumb & Filter Info -->
             <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
               <button class="btn btn-icon" id="btn-toggle-sidebar" title="Toggle Sidebar (Collapse / Expand)" style="width: 36px; height: 36px; font-size: 1.1rem; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff;">

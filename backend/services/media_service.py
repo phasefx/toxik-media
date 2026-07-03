@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff"}
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".opus"}
+DOC_EXTS = {".md", ".txt", ".epub", ".pdf", ".html", ".rst"}
 
 def compute_file_hash(filepath: str) -> str:
     hasher = hashlib.sha256()
@@ -136,7 +137,7 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
             continue
 
         if path.is_file():
-            if path.suffix.lower() in IMAGE_EXTS or path.suffix.lower() in VIDEO_EXTS or path.suffix.lower() in AUDIO_EXTS:
+            if path.suffix.lower() in IMAGE_EXTS or path.suffix.lower() in VIDEO_EXTS or path.suffix.lower() in AUDIO_EXTS or path.suffix.lower() in DOC_EXTS:
                 fp = str(path)
                 if fp not in seen_paths:
                     seen_paths.add(fp)
@@ -149,7 +150,7 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
                     if settings.is_protected_from_ingest(fpath):
                         continue
                     ext = fpath.suffix.lower()
-                    if ext in IMAGE_EXTS or ext in VIDEO_EXTS or ext in AUDIO_EXTS:
+                    if ext in IMAGE_EXTS or ext in VIDEO_EXTS or ext in AUDIO_EXTS or ext in DOC_EXTS:
                         fp = str(fpath)
                         if fp not in seen_paths:
                             seen_paths.add(fp)
@@ -210,9 +211,19 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
         elif ext in VIDEO_EXTS:
             media_type = "video"
             mime_type = f"video/{ext[1:]}"
-        else:
+        elif ext in AUDIO_EXTS:
             media_type = "audio"
             mime_type = f"audio/{ext[1:]}"
+        else:
+            media_type = "doc"
+            if ext == ".md":
+                mime_type = "text/markdown"
+            elif ext == ".epub":
+                mime_type = "application/epub+zip"
+            elif ext == ".pdf":
+                mime_type = "application/pdf"
+            else:
+                mime_type = f"text/{ext[1:]}"
         media_id = str(uuid.uuid4())
         filename = Path(filepath).name
 

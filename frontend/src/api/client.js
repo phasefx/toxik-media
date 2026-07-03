@@ -100,6 +100,10 @@ export const api = {
         return def_fetch(`/api/media/${mediaId}/extract_frame?mode=${mode}`, { method: 'POST' });
     },
 
+    async uploadToComfyUI(mediaId) {
+        return def_fetch(`/api/media/${mediaId}/upload_comfyui`, { method: 'POST' });
+    },
+
     async deleteMedia(mediaId, deleteFile = false) {
         return def_fetch(`/api/media/${mediaId}?delete_file=${deleteFile}`, {
             method: 'DELETE'

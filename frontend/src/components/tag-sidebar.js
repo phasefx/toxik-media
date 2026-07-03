@@ -172,6 +172,7 @@ export class TagSidebar {
         // Sort Options
         const sortOptions = [
             { id: 'asciibetical', label: 'Asciibetical' },
+            { id: 'tag_abetical', label: 'Tag-abetical' },
             { id: 'random', label: 'Random' },
             { id: 'creation_date', label: 'Creation Date' },
             { id: 'modification_date', label: 'Mod Date' },
@@ -180,15 +181,16 @@ export class TagSidebar {
             { id: 'duration', label: 'Duration' },
             { id: 'tag_count', label: 'Tag Count' }
         ];
-        const currentSortBy = store.get('sortBy') || 'creation_date';
-        const currentSortDir = store.get('sortDir') || 'desc';
+        const sortChain = store.get('sortChain') || [{ id: store.get('sortBy') || 'creation_date', dir: store.get('sortDir') || 'desc' }];
         const sortButtonsHtml = sortOptions.map(opt => {
-            const isSel = currentSortBy === opt.id;
-            const arrow = isSel && opt.id !== 'random' ? (currentSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+            const idx = sortChain.findIndex(s => s.id === opt.id);
+            const isSel = idx !== -1;
+            const arrow = isSel && opt.id !== 'random' ? (sortChain[idx].dir === 'asc' ? ' ▲' : ' ▼') : '';
+            const sub = (isSel && sortChain.length > 1) ? `<sub style="font-size:0.6rem; color: #00ff66; margin-left: 2px;">${idx + 1}</sub>` : '';
             return `
-              <button class="btn sort-radio-btn" data-sort="${opt.id}" style="height: 32px; font-size: 0.75rem; justify-content: flex-start; padding: 0 8px; background: ${isSel ? 'rgba(0, 240, 255, 0.15)' : 'transparent'}; border: 1px solid ${isSel ? 'var(--accent-cyan)' : 'var(--border-color)'}; color: ${isSel ? '#fff' : 'var(--text-secondary)'}; font-weight: ${isSel ? '700' : '500'}; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <button class="btn sort-radio-btn" data-sort="${opt.id}" title="Click: Set primary sort | Ctrl+Click: Add sub-sort / toggle dir | Shift+Click: Remove sort" style="height: 32px; font-size: 0.75rem; justify-content: flex-start; padding: 0 8px; background: ${isSel ? 'rgba(0, 240, 255, 0.15)' : 'transparent'}; border: 1px solid ${isSel ? 'var(--accent-cyan)' : 'var(--border-color)'}; color: ${isSel ? '#fff' : 'var(--text-secondary)'}; font-weight: ${isSel ? '700' : '500'}; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid ${isSel ? 'var(--accent-cyan)' : 'var(--text-muted)'}; background: ${isSel ? 'var(--accent-cyan)' : 'transparent'}; margin-right: 6px; flex-shrink: 0;"></span>
-                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis;">${opt.label}${arrow}</span>
+                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis;">${opt.label}${sub}${arrow}</span>
               </button>
             `;
         }).join('');
@@ -249,6 +251,7 @@ export class TagSidebar {
                             <button class="btn btn-icon type-btn ${mediaType === 'image' ? 'active' : ''}" data-type="image" title="Images Only (Ctrl+Click to exclude)" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'image' ? 'var(--accent-gradient)' : (excludedTypes.has('image') ? '#ff4444' : 'transparent')}; color: #fff; font-size: 0.8rem; ${excludedTypes.has('image') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">📷</button>
                             <button class="btn btn-icon type-btn ${mediaType === 'video' ? 'active' : ''}" data-type="video" title="Videos Only (Ctrl+Click to exclude)" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'video' ? 'var(--accent-gradient)' : (excludedTypes.has('video') ? '#ff4444' : 'transparent')}; color: #fff; font-size: 0.8rem; ${excludedTypes.has('video') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">🎬</button>
                             <button class="btn btn-icon type-btn ${mediaType === 'audio' ? 'active' : ''}" data-type="audio" title="Audio Only (Ctrl+Click to exclude)" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'audio' ? 'var(--accent-gradient)' : (excludedTypes.has('audio') ? '#ff4444' : 'transparent')}; color: #fff; font-size: 0.8rem; ${excludedTypes.has('audio') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">🎵</button>
+                            <button class="btn btn-icon type-btn ${mediaType === 'doc' ? 'active' : ''}" data-type="doc" title="Docs & Ebooks Only (Ctrl+Click to exclude)" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'doc' ? 'var(--accent-gradient)' : (excludedTypes.has('doc') ? '#ff4444' : 'transparent')}; color: #fff; font-size: 0.8rem; ${excludedTypes.has('doc') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">📄</button>
                           </div>
                           `;
                       })()}
@@ -335,17 +338,41 @@ export class TagSidebar {
 
         // Sort Radio Buttons
         this.container.querySelectorAll('.sort-radio-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
+            btn.addEventListener('click', async (e) => {
                 const sortId = btn.getAttribute('data-sort');
-                const currentSortBy = store.get('sortBy') || 'creation_date';
-                const currentSortDir = store.get('sortDir') || 'desc';
-                if (sortId === currentSortBy && sortId !== 'random') {
-                    const nextDir = currentSortDir === 'asc' ? 'desc' : 'asc';
-                    store.set({ sortDir: nextDir });
-                } else {
-                    const defaultDir = sortId === 'asciibetical' ? 'asc' : 'desc';
-                    store.set({ sortBy: sortId, sortDir: defaultDir });
+                const defaultDir = (sortId === 'asciibetical' || sortId === 'tag_abetical') ? 'asc' : 'desc';
+                let chain = store.get('sortChain') || [{ id: store.get('sortBy') || 'creation_date', dir: store.get('sortDir') || 'desc' }];
+                const idx = chain.findIndex(s => s.id === sortId);
+
+                if (e.shiftKey) {
+                    // Shift+click removes a sort
+                    if (idx !== -1 && chain.length > 1) {
+                        chain.splice(idx, 1);
+                        store.setSortChain(chain);
+                        await store.loadBrowse(true);
+                    }
+                    return;
                 }
+
+                if (e.ctrlKey || e.metaKey) {
+                    // Control+click adds a sub-sort or toggles direction if already in chain
+                    if (idx !== -1) {
+                        if (sortId !== 'random') {
+                            chain[idx].dir = chain[idx].dir === 'asc' ? 'desc' : 'asc';
+                        }
+                    } else {
+                        chain.push({ id: sortId, dir: defaultDir });
+                    }
+                } else {
+                    // Simple click sets primary sort and/or toggles direction if it was already sole primary
+                    if (chain.length === 1 && chain[0].id === sortId && sortId !== 'random') {
+                        chain[0].dir = chain[0].dir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        chain = [{ id: sortId, dir: defaultDir }];
+                    }
+                }
+
+                store.setSortChain(chain);
                 await store.loadBrowse(true);
             });
         });

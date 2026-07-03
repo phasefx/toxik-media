@@ -103,25 +103,39 @@ async def browse_media(
         from backend.services.media_service import get_media_items_bulk
         direct_media_items = await get_media_items_bulk(db, direct_items, media_all_tags)
 
-        # Sort direct items
-        reverse = (sort_dir.lower() == "desc")
-        if sort_by == "asciibetical":
-            direct_media_items.sort(key=lambda x: (x.filename or "").lower(), reverse=reverse)
-        elif sort_by == "modification_date":
-            direct_media_items.sort(key=lambda x: x.modified_at or x.created_at or "", reverse=reverse)
-        elif sort_by == "file_size":
-            direct_media_items.sort(key=lambda x: x.file_size or 0, reverse=reverse)
-        elif sort_by == "pixel_count":
-            direct_media_items.sort(key=lambda x: (x.width or 0) * (x.height or 0), reverse=reverse)
-        elif sort_by == "duration":
-            direct_media_items.sort(key=lambda x: x.duration_ms or 0, reverse=reverse)
-        elif sort_by == "tag_count":
-            direct_media_items.sort(key=lambda x: len(x.tags) if x.tags else 0, reverse=reverse)
-        elif sort_by == "random":
-            import random
-            random.shuffle(direct_media_items)
-        else: # default creation_date
-            direct_media_items.sort(key=lambda x: x.created_at or "", reverse=reverse)
+        # Sort direct items with multi-column sub-sort support (stable sort in reverse order)
+        def get_tag_abetical_key(item):
+            if not item.tags:
+                return ""
+            best_tag = max(item.tags, key=lambda t: (t.count('.'), len(t), t))
+            return best_tag.lower()
+
+        sort_keys = [k.strip() for k in sort_by.split(",") if k.strip()]
+        sort_dirs = [d.strip() for d in sort_dir.split(",") if d.strip()]
+        while len(sort_dirs) < len(sort_keys):
+            sort_dirs.append(sort_dirs[-1] if sort_dirs else "desc")
+
+        for k, d in reversed(list(zip(sort_keys, sort_dirs))):
+            reverse = (d.lower() == "desc")
+            if k == "asciibetical":
+                direct_media_items.sort(key=lambda x: (x.filename or "").lower(), reverse=reverse)
+            elif k == "modification_date":
+                direct_media_items.sort(key=lambda x: x.modified_at or x.created_at or "", reverse=reverse)
+            elif k == "file_size":
+                direct_media_items.sort(key=lambda x: x.file_size or 0, reverse=reverse)
+            elif k == "pixel_count":
+                direct_media_items.sort(key=lambda x: (x.width or 0) * (x.height or 0), reverse=reverse)
+            elif k == "duration":
+                direct_media_items.sort(key=lambda x: x.duration_ms or 0, reverse=reverse)
+            elif k == "tag_count":
+                direct_media_items.sort(key=lambda x: len(x.tags) if x.tags else 0, reverse=reverse)
+            elif k == "tag_abetical":
+                direct_media_items.sort(key=lambda x: get_tag_abetical_key(x), reverse=reverse)
+            elif k == "random":
+                import random
+                random.shuffle(direct_media_items)
+            else: # default creation_date
+                direct_media_items.sort(key=lambda x: x.created_at or "", reverse=reverse)
 
         for item in direct_media_items:
             results.append(ItemResult(media=item))

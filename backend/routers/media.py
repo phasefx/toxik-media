@@ -66,4 +66,16 @@ async def serve_media_file(media_id: str, db: aiosqlite.Connection = Depends(get
         media_type=item.mime_type,
         filename=item.filename
     )
-
+@router.post("/{media_id}/upload_comfyui")
+async def upload_media_to_comfyui(media_id: str, db: aiosqlite.Connection = Depends(get_db)):
+    item = await get_media_item(db, media_id)
+    if not item or not os.path.exists(item.filepath):
+        raise HTTPException(status_code=404, detail="Media file not found on disk")
+    try:
+        from pathlib import Path
+        from backend.config import settings
+        from backend.services.comfyui_service import upload_to_comfyui
+        res = await upload_to_comfyui(Path(item.filepath), settings.comfyui_host, settings.comfyui_port)
+        return {"status": "success", "result": res, "filename": Path(item.filepath).name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ComfyUI upload failed: {e}")

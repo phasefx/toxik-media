@@ -30,6 +30,14 @@ class Store extends EventTarget {
             theme: 'dark',
             sortBy: 'creation_date',
             sortDir: 'desc',
+            sortChain: (() => {
+                try {
+                    const saved = localStorage.getItem('toxik_sort_chain');
+                    if (saved) return JSON.parse(saved);
+                } catch (e) {}
+                return [{ id: 'creation_date', dir: 'desc' }];
+            })(),
+            mediaStretchFit: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_media_stretch_fit') === 'true'),
             isTagCloudOpen: false,
             isSidebarCollapsed: false,
             catalogs: [],
@@ -127,8 +135,8 @@ class Store extends EventTarget {
                 limit: this.state.limit,
                 threshold: this.state.threshold,
                 mediaType: this.state.mediaType,
-                sortBy: this.state.sortBy || 'creation_date',
-                sortDir: this.state.sortDir || 'desc'
+                sortBy: this.state.sortChain ? this.state.sortChain.map(s => s.id).join(',') : (this.state.sortBy || 'creation_date'),
+                sortDir: this.state.sortChain ? this.state.sortChain.map(s => s.dir).join(',') : (this.state.sortDir || 'desc')
             });
 
             const newResults = reset ? res.results : [...this.state.results, ...res.results];
@@ -157,27 +165,46 @@ class Store extends EventTarget {
 
     sortResults(results) {
         if (!results || !results.length) return results;
-        const sortBy = this.state.sortBy || 'creation_date';
-        const sortDir = this.state.sortDir || 'desc';
+        const chain = this.state.sortChain || [{ id: this.state.sortBy || 'creation_date', dir: this.state.sortDir || 'desc' }];
         const aggs = results.filter(r => r.type === 'aggregate');
         const items = results.filter(r => r.type === 'item');
 
-        if (sortBy === 'random') {
-            items.sort(() => Math.random() - 0.5);
-        } else {
-            const mul = sortDir === 'asc' ? 1 : -1;
-            items.sort((a, b) => {
-                const ma = a.media || {};
-                const mb = b.media || {};
-                if (sortBy === 'asciibetical') return mul * (ma.filename || '').localeCompare(mb.filename || '');
-                if (sortBy === 'creation_date') return mul * (ma.created_at || '').localeCompare(mb.created_at || '');
-                if (sortBy === 'modification_date') return mul * (ma.modified_at || ma.created_at || '').localeCompare(mb.modified_at || mb.created_at || '');
-                if (sortBy === 'file_size') return mul * ((ma.file_size || 0) - (mb.file_size || 0));
-                if (sortBy === 'pixel_count') return mul * (((ma.width || 0) * (ma.height || 0)) - ((mb.width || 0) * (mb.height || 0)));
-                if (sortBy === 'duration') return mul * ((ma.duration_ms || 0) - (mb.duration_ms || 0));
-                if (sortBy === 'tag_count') return mul * (((ma.tags || []).length) - ((mb.tags || []).length));
-                return 0;
-            });
+        const getTagAbeticalKey = (item) => {
+            if (!item || !item.tags || !item.tags.length) return '';
+            let best = '';
+            let maxDots = -1;
+            let maxLen = -1;
+            for (const t of item.tags) {
+                const dots = (t.match(/\./g) || []).length;
+                if (dots > maxDots || (dots === maxDots && t.length > maxLen)) {
+                    maxDots = dots;
+                    maxLen = t.length;
+                    best = t;
+                }
+            }
+            return best.toLowerCase();
+        };
+
+        for (let i = chain.length - 1; i >= 0; i--) {
+            const { id: sortBy, dir: sortDir } = chain[i];
+            if (sortBy === 'random') {
+                items.sort(() => Math.random() - 0.5);
+            } else {
+                const mul = sortDir === 'asc' ? 1 : -1;
+                items.sort((a, b) => {
+                    const ma = a.media || {};
+                    const mb = b.media || {};
+                    if (sortBy === 'asciibetical') return mul * (ma.filename || '').localeCompare(mb.filename || '');
+                    if (sortBy === 'creation_date') return mul * (ma.created_at || '').localeCompare(mb.created_at || '');
+                    if (sortBy === 'modification_date') return mul * (ma.modified_at || ma.created_at || '').localeCompare(mb.modified_at || mb.created_at || '');
+                    if (sortBy === 'file_size') return mul * ((ma.file_size || 0) - (mb.file_size || 0));
+                    if (sortBy === 'pixel_count') return mul * (((ma.width || 0) * (ma.height || 0)) - ((mb.width || 0) * (mb.height || 0)));
+                    if (sortBy === 'duration') return mul * ((ma.duration_ms || 0) - (mb.duration_ms || 0));
+                    if (sortBy === 'tag_count') return mul * (((ma.tags || []).length) - ((mb.tags || []).length));
+                    if (sortBy === 'tag_abetical') return mul * getTagAbeticalKey(ma).localeCompare(getTagAbeticalKey(mb));
+                    return 0;
+                });
+            }
         }
         return [...aggs, ...items];
     }
@@ -331,6 +358,24 @@ class Store extends EventTarget {
             this.setConnectionStatus(false);
             return false;
         }
+    }
+
+    setSortChain(chain) {
+        try {
+            localStorage.setItem('toxik_sort_chain', JSON.stringify(chain));
+        } catch (e) {}
+        this.set({
+            sortChain: chain,
+            sortBy: chain[0]?.id || 'creation_date',
+            sortDir: chain[0]?.dir || 'desc'
+        });
+    }
+
+    setMediaStretchFit(val) {
+        try {
+            localStorage.setItem('toxik_media_stretch_fit', val ? 'true' : 'false');
+        } catch (e) {}
+        this.set({ mediaStretchFit: val });
     }
 
     startHealthPoll() {

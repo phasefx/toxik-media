@@ -34,7 +34,7 @@ from rich import print as rprint
 from backend.models.database import get_db, init_db
 from backend.config import settings
 from backend.services.media_service import (
-    IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS, compute_file_hash, get_media_metadata,
+    IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS, DOC_EXTS, compute_file_hash, get_media_metadata,
     generate_thumbnail, get_directory_tag, batch_tag_media
 )
 
@@ -170,7 +170,7 @@ def scan_paths(paths: List[str]) -> Tuple[List[str], int, int, int]:
 
         for fpath in targets:
             ext = fpath.suffix.lower()
-            if ext in IMAGE_EXTS or ext in VIDEO_EXTS or ext in AUDIO_EXTS:
+            if ext in IMAGE_EXTS or ext in VIDEO_EXTS or ext in AUDIO_EXTS or ext in DOC_EXTS:
                 fp = str(fpath)
                 if fp not in seen_paths:
                     seen_paths.add(fp)
@@ -191,7 +191,8 @@ async def _rebuild_item_thumb(db, filepath: str, media_id: str, media_type: str 
         ext = Path(filepath).suffix.lower()
         if ext in IMAGE_EXTS: media_type = "image"
         elif ext in VIDEO_EXTS: media_type = "video"
-        else: media_type = "audio"
+        elif ext in AUDIO_EXTS: media_type = "audio"
+        else: media_type = "doc"
 
     thumb_p = settings.thumb_dir / f"{media_id}.webp"
     static_p = settings.thumb_dir / f"{media_id}_static.webp"
@@ -359,9 +360,19 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
                 elif ext in VIDEO_EXTS:
                     media_type = "video"
                     mime_type = f"video/{ext[1:]}"
-                else:
+                elif ext in AUDIO_EXTS:
                     media_type = "audio"
                     mime_type = f"audio/{ext[1:]}"
+                else:
+                    media_type = "doc"
+                    if ext == ".md":
+                        mime_type = "text/markdown"
+                    elif ext == ".epub":
+                        mime_type = "application/epub+zip"
+                    elif ext == ".pdf":
+                        mime_type = "application/pdf"
+                    else:
+                        mime_type = f"text/{ext[1:]}"
                 media_id = str(uuid.uuid4())
 
                 try:

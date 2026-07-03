@@ -6,6 +6,12 @@ export class DetailModal {
         this.container = container;
         this.modalTimer = null;
         this.currentRenderedId = null;
+        try {
+            const saved = localStorage.getItem('toxik_modal_expanded_sections');
+            this.expandedSections = saved ? new Set(JSON.parse(saved)) : new Set(['playlist', 'tags', 'info', 'actions']);
+        } catch (e) {
+            this.expandedSections = new Set(['playlist', 'tags', 'info', 'actions']);
+        }
 
         store.subscribe((state, changed) => {
             if (changed && changed.activeModalItem !== undefined) {
@@ -193,6 +199,9 @@ export class DetailModal {
             `;
         }).join('');
 
+        const isDoc = item.media_type === 'doc';
+        const stretchFit = store.get('mediaStretchFit') ? 'cover' : 'contain';
+
         this.container.innerHTML = `
           <div class="modal-backdrop" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 32px; animation: fadeIn 0.2s ease;">
 
@@ -202,9 +211,16 @@ export class DetailModal {
               <div class="modal-media-container" style="flex: 1; background: #000; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; min-width: 0;">
                 <button id="btn-close-modal" style="position: absolute; top: 16px; left: 16px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 1px solid var(--border-color); color: #fff; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
                 <button id="btn-toggle-fs-media" title="Toggle Fullscreen" style="position: absolute; top: 16px; left: 66px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">🖥️</button>
+                <button id="btn-toggle-stretch-media" title="Toggle Stretch to Fit (${store.get('mediaStretchFit') ? 'Cover' : 'Contain'})" style="position: absolute; top: 16px; left: 116px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: ${store.get('mediaStretchFit') ? 'var(--accent-gradient)' : 'rgba(0,0,0,0.6)'}; border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">${store.get('mediaStretchFit') ? '↔️' : '🔲'}</button>
 
-                ${isVideo ? `
-                  <video src="${mediaUrl}" controls autoplay ${store.get('playlist')?.isPlaying ? '' : 'loop'} style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
+                ${isDoc ? `
+                  <div id="doc-viewer-container" style="width: 100%; height: 100%; background: #0f111a; color: #e0e0e0; padding: 60px 40px; overflow-y: auto; font-family: 'Inter', system-ui, sans-serif; line-height: 1.6; font-size: 1rem; max-width: 900px; margin: 0 auto; box-sizing: border-box; text-align: left;">
+                    <div style="display:flex; justify-content:center; align-items:center; height:100%; color: var(--text-muted);">
+                      <span>⌛ Loading document content (${item.filename})...</span>
+                    </div>
+                  </div>
+                ` : isVideo ? `
+                  <video src="${mediaUrl}" controls autoplay ${store.get('playlist')?.isPlaying ? '' : 'loop'} style="max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: ${stretchFit};"></video>
                 ` : item.media_type === 'audio' ? `
                   <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); padding: 32px; position: relative; overflow: hidden;">
                     ${item.thumb_url ? `<img src="${item.thumb_url}" onerror="this.style.display='none';" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.25; filter: blur(20px);" />` : ''}
@@ -215,15 +231,15 @@ export class DetailModal {
                     </div>
                   </div>
                 ` : `
-                  <img src="${mediaUrl}" alt="${item.filename}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                  <img src="${mediaUrl}" alt="${item.filename}" style="max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: ${stretchFit};" />
                 `}
               </div>
 
-              <!-- Right: Metadata & Tag Editor -->
+              <!-- Right: Metadata & Tag Editor (Accordion) -->
               <div class="modal-sidebar" style="width: 380px; background: var(--bg-card); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; height: 100%; overflow-y: auto;">
 
                 <!-- Header -->
-                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0;">
                   <div style="flex: 1; min-width: 0;">
                     <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; word-break: break-all; margin-bottom: 6px;">${item.filename}</h3>
                     <span style="font-size: 0.8rem; color: var(--text-secondary);">${item.media_type.toUpperCase()} • ${this.formatBytes(item.file_size)}</span>
@@ -237,84 +253,128 @@ export class DetailModal {
                   ` : ''}
                 </div>
 
-                <!-- Playlist Controls in Detail Card -->
-                <div class="detail-play-controls" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); background: rgba(0, 240, 255, 0.05);">
-                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                    <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-cyan);">🎵 Play Controls</span>
-                    <div style="display: flex; gap: 6px;">
-                      <button id="btn-modal-dl-pl" class="btn" title="Download VLC Playlist (.m3u8)" style="height: 26px; padding: 0 10px; font-size: 0.75rem; background: rgba(0,240,255,0.15); border: 1px solid var(--accent-cyan); color: #fff; cursor: pointer; font-weight: 600;">
-                        ⬇️ VLC
+                <!-- Section 1: Playlist Controls -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0; background: rgba(0, 240, 255, 0.03);">
+                  <div class="accordion-header" data-section="playlist" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--accent-cyan); text-transform: uppercase;">
+                    <span>🎵 Play Controls</span>
+                    <span>${this.expandedSections.has('playlist') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('playlist') ? `
+                    <div class="detail-play-controls" style="padding: 0 16px 14px 16px;">
+                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">VLC & Fullscreen</span>
+                        <div style="display: flex; gap: 6px;">
+                          <button id="btn-modal-dl-pl" class="btn" title="Download VLC Playlist (.m3u8)" style="height: 26px; padding: 0 10px; font-size: 0.75rem; background: rgba(0,240,255,0.15); border: 1px solid var(--accent-cyan); color: #fff; cursor: pointer; font-weight: 600;">
+                            ⬇️ VLC
+                          </button>
+                          <button id="btn-modal-fullscreen" class="btn" title="Toggle Fullscreen Mode" style="height: 26px; padding: 0 10px; font-size: 0.75rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer;">
+                            🖥️ FS
+                          </button>
+                        </div>
+                      </div>
+
+                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                        <button id="btn-modal-prev-pl" class="btn btn-icon" title="Previous Item" style="flex: 1; height: 36px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; cursor: pointer;">⏮ Prev</button>
+                        <button id="btn-modal-play-pl" class="btn" title="Play / Pause" style="flex: 1.5; height: 36px; background: var(--accent-gradient); border: none; color: #fff; font-weight: 700; box-shadow: 0 0 15px rgba(0,240,255,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                          ▶ Play
+                        </button>
+                        <button id="btn-modal-next-pl" class="btn btn-icon" title="Next Item" style="flex: 1; height: 36px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; cursor: pointer;">Next ⏭</button>
+                      </div>
+
+                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                        <button id="btn-modal-shuffle-pl" class="btn" style="flex: 1; height: 30px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer;">
+                          🔀 Shuffle
+                        </button>
+                        <button id="btn-modal-loop-pl" class="btn" style="flex: 1; height: 30px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer;">
+                          🔁 Loop: Set
+                        </button>
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Section 2: Tags Section -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                  <div class="accordion-header" data-section="tags" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                    <span>🏷 Hierarchical Tags</span>
+                    <span>${this.expandedSections.has('tags') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('tags') ? `
+                    <div style="padding: 0 16px 14px 16px;">
+                      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+                        ${tagPillsHtml || '<span style="font-size: 0.85rem; color: var(--text-muted);">No tags assigned yet.</span>'}
+                      </div>
+                      <div style="display: flex; gap: 8px;">
+                        <input type="text" id="input-add-tag" class="input" placeholder="Add tag (e.g. Person.Jake)..." style="height: 38px; font-size: 0.85rem;" />
+                        <button class="btn btn-primary" id="btn-add-tag-submit" style="height: 38px; padding: 0 16px;">+</button>
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Section 3: Metadata Details -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                  <div class="accordion-header" data-section="info" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                    <span>ℹ️ Technical Specs</span>
+                    <span>${this.expandedSections.has('info') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('info') ? `
+                    <div style="padding: 0 16px 14px 16px; font-size: 0.85rem;">
+                      <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; color: var(--text-secondary);">
+                        <span>Resolution:</span> <strong style="color: #fff;">${item.width || '?'} × ${item.height || '?'}</strong>
+                        <span>Path:</span> <span style="font-size: 0.75rem; word-break: break-all; color: var(--text-muted);">${item.filepath}</span>
+                        ${item.file_hash ? `<span>SHA-256:</span> <span style="font-size: 0.7rem; font-family: monospace; word-break: break-all; color: var(--text-muted);">${item.file_hash.substring(0, 16)}...</span>` : ''}
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Section 4: Actions -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                  <div class="accordion-header" data-section="actions" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                    <span>🎮 Actions & Gen</span>
+                    <span>${this.expandedSections.has('actions') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('actions') ? `
+                    <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                        <button class="btn" id="btn-action-i2i" style="background: rgba(0, 229, 255, 0.2); border-color: var(--accent-cyan); color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Image to Image">
+                          🎨 I2I
+                        </button>
+                        <button class="btn" id="btn-action-i2v" style="background: rgba(157, 0, 255, 0.2); border-color: var(--accent-purple); color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Image to Video">
+                          🎬 I2V
+                        </button>
+                        <button class="btn" id="btn-action-v2v" style="background: rgba(255, 145, 0, 0.2); border-color: #ff9100; color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Video to Video">
+                          🎥 V2V
+                        </button>
+                      </div>
+                      <button class="btn" id="btn-upload-comfyui" style="width: 100%; background: rgba(0, 255, 102, 0.15); border-color: rgba(0, 255, 102, 0.4); color: #00ff66; height: 38px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        ☁️ Upload to ComfyUI
                       </button>
-                      <button id="btn-modal-fullscreen" class="btn" title="Toggle Fullscreen Mode" style="height: 26px; padding: 0 10px; font-size: 0.75rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer;">
-                        🖥️ FS
+                      <button class="btn" id="btn-delete-media" style="width: 100%; background: rgba(255, 0, 0, 0.15); border-color: rgba(255, 0, 0, 0.4); color: #ff6b6b; height: 38px;">
+                        🗑 Delete Media Item
                       </button>
                     </div>
-                  </div>
-
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-                    <button id="btn-modal-prev-pl" class="btn btn-icon" title="Previous Item" style="flex: 1; height: 36px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; cursor: pointer;">⏮ Prev</button>
-                    <button id="btn-modal-play-pl" class="btn" title="Play / Pause" style="flex: 1.5; height: 36px; background: var(--accent-gradient); border: none; color: #fff; font-weight: 700; box-shadow: 0 0 15px rgba(0,240,255,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                      ▶ Play
-                    </button>
-                    <button id="btn-modal-next-pl" class="btn btn-icon" title="Next Item" style="flex: 1; height: 36px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; cursor: pointer;">Next ⏭</button>
-                  </div>
-
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                    <button id="btn-modal-shuffle-pl" class="btn" style="flex: 1; height: 30px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer;">
-                      🔀 Shuffle
-                    </button>
-                    <button id="btn-modal-loop-pl" class="btn" style="flex: 1; height: 30px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer;">
-                      🔁 Loop: Set
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Tags Section -->
-                <div style="padding: 20px; border-bottom: 1px solid var(--border-color); flex: 1;">
-                  <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 12px;">🏷 Hierarchical Tags</h4>
-
-                  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
-                    ${tagPillsHtml || '<span style="font-size: 0.85rem; color: var(--text-muted);">No tags assigned yet.</span>'}
-                  </div>
-
-                  <div style="display: flex; gap: 8px;">
-                    <input type="text" id="input-add-tag" class="input" placeholder="Add tag (e.g. Person.Jake)..." style="height: 38px; font-size: 0.85rem;" />
-                    <button class="btn btn-primary" id="btn-add-tag-submit" style="height: 38px; padding: 0 16px;">+</button>
-                  </div>
-                </div>
-
-                <!-- Metadata Details -->
-                <div style="padding: 20px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem;">
-                  <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 12px;">ℹ️ Technical Specs</h4>
-                  <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; color: var(--text-secondary);">
-                    <span>Resolution:</span> <strong style="color: #fff;">${item.width || '?'} × ${item.height || '?'}</strong>
-                    <span>Path:</span> <span style="font-size: 0.75rem; word-break: break-all; color: var(--text-muted);">${item.filepath}</span>
-                    ${item.file_hash ? `<span>SHA-256:</span> <span style="font-size: 0.7rem; font-family: monospace; word-break: break-all; color: var(--text-muted);">${item.file_hash.substring(0, 16)}...</span>` : ''}
-                  </div>
-                </div>
-
-                <!-- Actions -->
-                <div style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
-                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                    <button class="btn" id="btn-action-i2i" style="background: rgba(0, 229, 255, 0.2); border-color: var(--accent-cyan); color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Image to Image">
-                      🎨 I2I
-                    </button>
-                    <button class="btn" id="btn-action-i2v" style="background: rgba(157, 0, 255, 0.2); border-color: var(--accent-purple); color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Image to Video">
-                      🎬 I2V
-                    </button>
-                    <button class="btn" id="btn-action-v2v" style="background: rgba(255, 145, 0, 0.2); border-color: #ff9100; color: #fff; font-weight: 600; font-size: 0.8rem; padding: 0 6px; height: 38px;" title="Video to Video">
-                      🎥 V2V
-                    </button>
-                  </div>
-                  <button class="btn" id="btn-delete-media" style="width: 100%; background: rgba(255, 0, 0, 0.15); border-color: rgba(255, 0, 0, 0.4); color: #ff6b6b;">
-                    🗑 Delete Media Item
-                  </button>
+                  ` : ''}
                 </div>
 
               </div>
             </div>
           </div>
         `;
+
+        if (isDoc) {
+            fetch(mediaUrl).then(res => res.text()).then(text => {
+                const docEl = this.container.querySelector('#doc-viewer-container');
+                if (docEl) {
+                    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    docEl.innerHTML = `<h1 style="color:#fff; border-bottom:1px solid #333; padding-bottom:10px; margin-top:0;">${item.filename}</h1><pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${escaped}</pre>`;
+                }
+            }).catch(err => {
+                const docEl = this.container.querySelector('#doc-viewer-container');
+                if (docEl) docEl.innerHTML = `<div style="color:#ff4444;">Failed to load document: ${err.message}</div>`;
+            });
+        }
 
         this.updatePlaylistUI();
         this.attachEvents(item);
@@ -488,6 +548,47 @@ export class DetailModal {
                     } catch (err) {
                         alert(`Delete failed: ${err.message}`);
                     }
+                }
+            });
+        }
+
+        this.container.querySelectorAll('.accordion-header').forEach(hdr => {
+            hdr.addEventListener('click', () => {
+                const sec = hdr.getAttribute('data-section');
+                if (this.expandedSections.has(sec)) {
+                    this.expandedSections.delete(sec);
+                } else {
+                    this.expandedSections.add(sec);
+                }
+                try {
+                    localStorage.setItem('toxik_modal_expanded_sections', JSON.stringify(Array.from(this.expandedSections)));
+                } catch (err) {}
+                this.render(item);
+            });
+        });
+
+        const stretchBtn = this.container.querySelector('#btn-toggle-stretch-media');
+        if (stretchBtn) {
+            stretchBtn.addEventListener('click', () => {
+                store.setMediaStretchFit(!store.get('mediaStretchFit'));
+                this.render(item);
+            });
+        }
+
+        const uploadComfyBtn = this.container.querySelector('#btn-upload-comfyui');
+        if (uploadComfyBtn) {
+            uploadComfyBtn.addEventListener('click', async () => {
+                try {
+                    uploadComfyBtn.innerHTML = '⏳ Uploading...';
+                    uploadComfyBtn.disabled = true;
+                    const res = await api.uploadToComfyUI(item.id);
+                    alert(`Uploaded "${res.filename || item.filename}" to ComfyUI input directory successfully!`);
+                    uploadComfyBtn.innerHTML = '☁️ Upload to ComfyUI';
+                    uploadComfyBtn.disabled = false;
+                } catch (err) {
+                    alert(`Upload failed: ${err.message}`);
+                    uploadComfyBtn.innerHTML = '☁️ Upload to ComfyUI';
+                    uploadComfyBtn.disabled = false;
                 }
             });
         }
