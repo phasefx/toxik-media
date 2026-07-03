@@ -77,36 +77,70 @@ export class TagSidebar {
         if (keys.length === 0) return '';
 
         let html = `<ul style="list-style: none; padding-left: ${level > 0 ? 14 : 0}px; margin: 2px 0;">`;
-        const activeFilter = store.get('activeFilter');
+        const activeFilter = (store.get('activeFilter') || '').trim();
+        const tokens = activeFilter ? activeFilter.split(/\s+/) : [];
+        const incTags = new Set();
+        const excTags = new Set();
+        for (const tok of tokens) {
+            if (tok.startsWith('-')) excTags.add(tok.substring(1));
+            else if (tok.startsWith('+')) incTags.add(tok.substring(1));
+            else incTags.add(tok);
+        }
+        const orphanMode = store.get('orphanMode') || 'exclude';
 
         for (const key of keys) {
             const node = nodeMap[key];
             const hasChildren = Object.keys(node.children).length > 0;
             const isExpanded = this.expandedNodes.has(node.full_tag);
-            const isActive = activeFilter === node.full_tag;
+            const isOrphan = node.full_tag === 'orphan';
+
+            let isIncluded = false;
+            let isExcluded = false;
+            if (isOrphan) {
+                isIncluded = incTags.has('orphan') || (!excTags.has('orphan') && orphanMode === 'include');
+                isExcluded = excTags.has('orphan') || (!incTags.has('orphan') && orphanMode === 'exclude');
+            } else {
+                isIncluded = incTags.has(node.full_tag);
+                isExcluded = excTags.has(node.full_tag);
+            }
+
             const parts = node.full_tag.split('.');
             const isComposite = parts.length > 1;
             const tooltip = isComposite
                 ? `Composite Tag: ${node.full_tag}&#10;• Hierarchy: ${parts.join(' ➔ ')} (${parts.length} levels)&#10;• Media Items: ${node.count}`
                 : `Tag: ${node.full_tag}&#10;• Media Items: ${node.count}`;
 
+            let rowBg = 'transparent';
+            let rowBorder = 'transparent';
+            if (isIncluded) {
+                rowBg = 'rgba(0, 255, 136, 0.15)';
+                rowBorder = '#00ff88';
+            } else if (isExcluded) {
+                rowBg = 'rgba(255, 68, 68, 0.15)';
+                rowBorder = '#ff4444';
+            }
+
             html += `
               <li style="margin: 2px 0;">
-                <div class="tag-tree-item ${isActive ? 'active' : ''}"
+                <div class="tag-tree-item"
                      data-tag="${node.full_tag}" title="${tooltip}"
-                     style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; background: ${isActive ? 'rgba(0, 240, 255, 0.15)' : 'transparent'}; border: 1px solid ${isActive ? 'var(--accent-cyan)' : 'transparent'}; transition: all 0.15s ease; min-height: 36px;">
+                     style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; background: ${rowBg}; border: 1px solid ${rowBorder}; transition: all 0.15s ease; min-height: 36px;">
                   <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1; margin-right: 8px;">
                     ${hasChildren ? `
                       <span class="toggle-btn" data-toggle="${node.full_tag}" style="cursor: pointer; display: inline-block; width: 16px; text-align: center; color: var(--text-muted); font-size: 0.75rem;">
                         ${isExpanded ? '▼' : '▶'}
                       </span>
                     ` : '<span style="width: 16px;"></span>'}
-                    <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem;" title="${tooltip}">
+                    <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; ${isExcluded ? 'text-decoration: line-through; opacity: 0.8;' : ''}" title="${tooltip}">
                       ${node.label}
                     </span>
                   </div>
-                  <div style="display: flex; align-items: center; gap: 6px;">
-                    <span class="badge" style="background: ${isActive ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.08)'}; color: ${isActive ? '#000' : 'var(--text-secondary)'}; font-size: 0.75rem;">
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <button class="btn-tag-inc" data-tag="${node.full_tag}" title="Include (+)"
+                            style="background: ${isIncluded ? '#00ff88' : 'rgba(255,255,255,0.08)'}; color: ${isIncluded ? '#000' : '#aaa'}; border: none; font-weight: 800; font-size: 0.75rem; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;">+</button>
+                    <button class="btn-tag-exc" data-tag="${node.full_tag}" title="Exclude (-)"
+                            style="background: ${isExcluded ? '#ff4444' : 'rgba(255,255,255,0.08)'}; color: ${isExcluded ? '#fff' : '#aaa'}; border: none; font-weight: 800; font-size: 0.75rem; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;">−</button>
+                    <span class="badge" style="background: ${isIncluded ? '#00ff88' : (isExcluded ? '#ff4444' : 'rgba(255,255,255,0.08)')}; color: ${isIncluded || isExcluded ? '#000' : 'var(--text-secondary)'}; font-size: 0.75rem; margin-left: 2px;">
                       ${node.count}
                     </span>
                     ${node.id ? `
@@ -134,7 +168,6 @@ export class TagSidebar {
         const isAllActive = !activeFilter || activeFilter === 'All';
         const viewMode = store.get('viewMode') || 'grid';
         const mediaType = store.get('mediaType') || 'all';
-        const multiMode = store.get('multiFilterMode') || 'AND';
 
         // Sort Options
         const sortOptions = [
@@ -220,13 +253,6 @@ export class TagSidebar {
                       </button>
                       <button class="btn btn-icon" id="btn-anim-thumbs-toggle" title="Toggle Animated Thumbs" style="flex: 1; height: 32px; font-size: 0.75rem; background: ${store.get('animThumbs', true) !== false ? 'rgba(0, 240, 255, 0.15)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${store.get('animThumbs', true) !== false ? 'var(--accent-cyan)' : 'var(--border-color)'}; color: #fff;">
                         🎬 Anim: ${store.get('animThumbs', true) !== false ? 'On' : 'Off'}
-                      </button>
-                    </div>
-
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 2px;">
-                      <span style="font-size: 0.75rem; color: var(--text-muted);">Multi-tag logic:</span>
-                      <button class="btn" id="btn-multi-mode" title="Toggle Multi-filter Logic" style="height: 28px; font-size: 0.7rem; font-weight: 700; padding: 0 10px; border-color: rgba(0, 240, 255, 0.3);">
-                        ${multiMode}
                       </button>
                     </div>
                   </div>
@@ -328,9 +354,66 @@ export class TagSidebar {
         // Tag Tree Items
         this.container.querySelectorAll('.tag-tree-item').forEach(el => {
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.toggle-btn') || e.target.closest('.btn-tag-rename') || e.target.closest('.btn-tag-delete')) return;
+                if (e.target.closest('.toggle-btn') || e.target.closest('.btn-tag-rename') || e.target.closest('.btn-tag-delete') || e.target.closest('.btn-tag-inc') || e.target.closest('.btn-tag-exc')) return;
                 const tag = el.getAttribute('data-tag');
+                if (tag === 'orphan') {
+                    const currentMode = store.get('orphanMode') || 'exclude';
+                    const nextMode = currentMode === 'include' ? 'neutral' : 'include';
+                    store.set({ orphanMode: nextMode });
+                    try { localStorage.setItem('toxik_orphan_mode', nextMode); } catch (err) {}
+                    store.loadBrowse(true);
+                    this.render();
+                    return;
+                }
                 store.setFilter(tag);
+            });
+        });
+
+        this.container.querySelectorAll('.btn-tag-inc').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tag = btn.getAttribute('data-tag');
+                if (tag === 'orphan') {
+                    const currentMode = store.get('orphanMode') || 'exclude';
+                    const nextMode = currentMode === 'include' ? 'neutral' : 'include';
+                    store.set({ orphanMode: nextMode });
+                    try { localStorage.setItem('toxik_orphan_mode', nextMode); } catch (err) {}
+                    store.loadBrowse(true);
+                    this.render();
+                    return;
+                }
+                const activeFilter = (store.get('activeFilter') || '').trim();
+                let tokens = activeFilter ? activeFilter.split(/\s+/) : [];
+                const wasInc = tokens.some(t => t === tag || t === '+' + tag);
+                tokens = tokens.filter(t => t !== tag && t !== '+' + tag && t !== '-' + tag);
+                if (!wasInc) {
+                    tokens.push('+' + tag);
+                }
+                store.setFilter(tokens.join(' '));
+            });
+        });
+
+        this.container.querySelectorAll('.btn-tag-exc').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tag = btn.getAttribute('data-tag');
+                if (tag === 'orphan') {
+                    const currentMode = store.get('orphanMode') || 'exclude';
+                    const nextMode = currentMode === 'exclude' ? 'neutral' : 'exclude';
+                    store.set({ orphanMode: nextMode });
+                    try { localStorage.setItem('toxik_orphan_mode', nextMode); } catch (err) {}
+                    store.loadBrowse(true);
+                    this.render();
+                    return;
+                }
+                const activeFilter = (store.get('activeFilter') || '').trim();
+                let tokens = activeFilter ? activeFilter.split(/\s+/) : [];
+                const wasExc = tokens.some(t => t === '-' + tag);
+                tokens = tokens.filter(t => t !== tag && t !== '+' + tag && t !== '-' + tag);
+                if (!wasExc) {
+                    tokens.push('-' + tag);
+                }
+                store.setFilter(tokens.join(' '));
             });
         });
 
@@ -499,14 +582,6 @@ export class TagSidebar {
             animBtn.addEventListener('click', () => {
                 const current = store.get('animThumbs', true) !== false;
                 store.set({ animThumbs: !current });
-            });
-        }
-
-        const multiBtn = this.container.querySelector('#btn-multi-mode');
-        if (multiBtn) {
-            multiBtn.addEventListener('click', () => {
-                const next = store.get('multiFilterMode') === 'AND' ? 'OR' : 'AND';
-                store.set({ multiFilterMode: next });
             });
         }
 

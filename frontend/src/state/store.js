@@ -33,7 +33,8 @@ class Store extends EventTarget {
             isSidebarCollapsed: false,
             catalogs: [],
             activeCatalog: '',
-            isConnected: true
+            isConnected: true,
+            orphanMode: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_orphan_mode')) || 'exclude'
         };
         if (typeof window !== 'undefined') {
             window.addEventListener('toxik-api-success', () => this.setConnectionStatus(true));
@@ -57,6 +58,18 @@ class Store extends EventTarget {
         const handler = (e) => callback(this.state, e.detail);
         this.addEventListener('change', handler);
         return () => this.removeEventListener('change', handler);
+    }
+
+    getEffectiveFilter() {
+        let f = (this.state.activeFilter || '').trim();
+        if (f === 'All') f = '';
+        if (!f.toLowerCase().includes('orphan')) {
+            const mode = this.state.orphanMode || 'exclude';
+            if (mode === 'exclude') f = (f + ' -orphan').trim();
+            else if (mode === 'include') f = (f + ' +orphan').trim();
+            else if (mode === 'neutral') f = (f + ' ~orphan').trim();
+        }
+        return f;
     }
 
     getBreadcrumb() {
@@ -107,7 +120,7 @@ class Store extends EventTarget {
         try {
             const currentPage = reset ? 1 : this.state.page;
             const res = await api.browse({
-                filter: this.state.activeFilter,
+                filter: this.getEffectiveFilter(),
                 view: this.state.viewMode,
                 page: currentPage,
                 limit: this.state.limit,

@@ -388,7 +388,7 @@ export class DetailModal {
         const dlPl = this.container.querySelector('#btn-modal-dl-pl');
         if (dlPl) {
             dlPl.addEventListener('click', () => {
-                const filter = store.get('activeFilter') || '';
+                const filter = store.getEffectiveFilter();
                 const mediaType = store.get('mediaType') || '';
                 let url = `/api/browse/playlist?`;
                 if (filter && filter !== 'All') url += `filter=${encodeURIComponent(filter)}&`;

@@ -1,9 +1,54 @@
 import aiosqlite
+import os
+import time
 from typing import List, Dict, Any, Optional, Tuple, Set
 from backend.models.schemas import TagItem, TagCreate
 import logging
 
 logger = logging.getLogger(__name__)
+
+_last_orphan_sync = 0.0
+
+async def sync_orphan_tags(db: aiosqlite.Connection, force: bool = False):
+    """
+    Check all media items in DB. For any item whose file on disk is missing, ensure it has the 'orphan' tag.
+    For any item whose file on disk exists, ensure it does NOT have the 'orphan' tag.
+    """
+    global _last_orphan_sync
+    now = time.time()
+    if not force and (now - _last_orphan_sync) < 2.0:
+        return
+    _last_orphan_sync = now
+
+    cursor = await db.execute("SELECT id, filepath FROM media WHERE filepath IS NOT NULL")
+    rows = await cursor.fetchall()
+
+    orphaned_ids = []
+    normal_ids = []
+    for row in rows:
+        if not os.path.exists(row["filepath"]):
+            orphaned_ids.append(row["id"])
+        else:
+            normal_ids.append(row["id"])
+
+    if orphaned_ids:
+        t_id = await ensure_tag_exists(db, "orphan")
+        placeholders = ",".join("?" for _ in orphaned_ids)
+        await db.execute(f"""
+            INSERT OR IGNORE INTO media_tags (media_id, tag_id)
+            SELECT id, ? FROM media WHERE id IN ({placeholders})
+        """, [t_id] + orphaned_ids)
+        await db.commit()
+
+    if normal_ids:
+        cursor = await db.execute("SELECT id FROM tags WHERE full_tag = 'orphan'")
+        t_row = await cursor.fetchone()
+        if t_row:
+            t_id = t_row["id"]
+            placeholders = ",".join("?" for _ in normal_ids)
+            await db.execute(f"DELETE FROM media_tags WHERE tag_id = ? AND media_id IN ({placeholders})", [t_id] + normal_ids)
+            await db.commit()
+
 
 async def ensure_tag_exists(db: aiosqlite.Connection, full_tag: str) -> int:
     """
@@ -46,6 +91,7 @@ async def get_all_tags(db: aiosqlite.Connection) -> List[TagItem]:
     """
     Returns all tags with count of associated media items (including descendant tags).
     """
+    await sync_orphan_tags(db)
     cursor = await db.execute("""
         SELECT t.id, t.full_tag, t.depth, t.parent_tag,
                (SELECT COUNT(DISTINCT mt.media_id)
@@ -195,16 +241,23 @@ def match_tag_pattern(tag_str: str, filter_pattern: str) -> Optional[Tuple[str, 
 async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optional[str], media_type: Optional[str] = None) -> Tuple[Set[str], Dict[str, str], Dict[str, List[str]]]:
     """
     Finds all media IDs matching filter_pattern and optionally media_type.
+    Supports multi-tag inclusion (+tag or tag) and exclusion (-tag), with default -orphan exclusion.
     Returns:
       - matching_media_ids: set of media_id
-      - media_next_segment: dict mapping media_id -> next_segment (if aggregate applicable, or None if direct item)
+      - media_next_segment: dict mapping media_id -> next_segment
       - media_all_tags: dict mapping media_id -> list of all full_tag strings for that media
     """
+    await sync_orphan_tags(db)
+
     valid_media_ids = None
     if media_type:
         type_cursor = await db.execute("SELECT id FROM media WHERE media_type = ?", (media_type,))
         type_rows = await type_cursor.fetchall()
         valid_media_ids = {r["id"] for r in type_rows}
+    else:
+        all_media_cursor = await db.execute("SELECT id FROM media")
+        all_rows = await all_media_cursor.fetchall()
+        valid_media_ids = {r["id"] for r in all_rows}
 
     cursor = await db.execute("""
         SELECT mt.media_id, t.full_tag
@@ -213,50 +266,79 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
     """)
     rows = await cursor.fetchall()
 
-    media_all_tags: Dict[str, List[str]] = {}
+    media_all_tags: Dict[str, List[str]] = {mid: [] for mid in valid_media_ids}
     for row in rows:
         mid = row["media_id"]
-        if valid_media_ids is not None and mid not in valid_media_ids:
-            continue
-        ft = row["full_tag"]
         if mid not in media_all_tags:
-            media_all_tags[mid] = []
-        media_all_tags[mid].append(ft)
+            continue
+        media_all_tags[mid].append(row["full_tag"])
 
-    # If no filter or empty, return all media in database matching media_type
-    if not filter_pattern or filter_pattern == "All":
-        if media_type:
-            all_media_cursor = await db.execute("SELECT id FROM media WHERE media_type = ?", (media_type,))
+    tokens = filter_pattern.split() if filter_pattern and filter_pattern != "All" else []
+    inc_patterns = []
+    exc_patterns = []
+    has_orphan_token = False
+
+    for tok in tokens:
+        clean_tok = tok
+        if clean_tok.startswith("+"):
+            clean_tok = clean_tok[1:]
+            is_exc = False
+        elif clean_tok.startswith("-"):
+            clean_tok = clean_tok[1:]
+            is_exc = True
+        elif clean_tok.startswith("~"):
+            clean_tok = clean_tok[1:]
+            is_exc = None
         else:
-            all_media_cursor = await db.execute("SELECT id FROM media")
-        all_rows = await all_media_cursor.fetchall()
-        matching_ids = set()
-        media_next_seg = {}
-        for r in all_rows:
-            mid = r["id"]
-            matching_ids.add(mid)
-            media_next_seg[mid] = None
-        return matching_ids, media_next_seg, media_all_tags
+            is_exc = False
+
+        if clean_tok.lower() == "orphan" or clean_tok.lower().startswith("orphan."):
+            has_orphan_token = True
+
+        if is_exc is True:
+            exc_patterns.append(clean_tok)
+        elif is_exc is False:
+            inc_patterns.append(clean_tok)
+
+    if not has_orphan_token:
+        exc_patterns.append("orphan")
 
     matching_media_ids: Set[str] = set()
     media_next_segment: Dict[str, str] = {}
 
     for mid, tags in media_all_tags.items():
-        if valid_media_ids is not None and mid not in valid_media_ids:
+        excluded = False
+        for exc_pat in exc_patterns:
+            for tag_str in tags:
+                if match_tag_pattern(tag_str, exc_pat) is not None:
+                    excluded = True
+                    break
+            if excluded:
+                break
+        if excluded:
             continue
-        best_next_seg = None
-        matched = False
-        for tag_str in tags:
-            res = match_tag_pattern(tag_str, filter_pattern)
-            if res is not None:
-                matched = True
-                matched_prefix, next_seg = res
-                # Prefer specific child subcategories (next_seg is not None) over generic direct parent tags
-                if next_seg is not None:
-                    if best_next_seg is None:
-                        best_next_seg = next_seg
-        if matched:
+
+        if not inc_patterns:
             matching_media_ids.add(mid)
-            media_next_segment[mid] = best_next_seg
+            media_next_segment[mid] = None
+        else:
+            all_inc_matched = True
+            best_next_seg = None
+            for inc_pat in inc_patterns:
+                pat_matched = False
+                for tag_str in tags:
+                    res = match_tag_pattern(tag_str, inc_pat)
+                    if res is not None:
+                        pat_matched = True
+                        _, next_seg = res
+                        if next_seg is not None and best_next_seg is None:
+                            best_next_seg = next_seg
+                if not pat_matched:
+                    all_inc_matched = False
+                    break
+            if all_inc_matched:
+                matching_media_ids.add(mid)
+                media_next_segment[mid] = best_next_seg
 
     return matching_media_ids, media_next_segment, media_all_tags
+

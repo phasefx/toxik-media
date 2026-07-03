@@ -428,6 +428,8 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
                     all_ids = [mid for _, mid in imported_ids]
                     await batch_tag_media(db, all_ids, add_tags=custom_tags)
 
+        from backend.services.tag_service import sync_orphan_tags
+        await sync_orphan_tags(db, force=True)
         elapsed = time.time() - start_time
         await db.close()
         _clear_state()

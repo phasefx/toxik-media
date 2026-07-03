@@ -208,7 +208,7 @@ export class PlaylistBar {
     }
 
     downloadPlaylist() {
-        const filter = store.get('activeFilter') || '';
+        const filter = store.getEffectiveFilter();
         const mediaType = store.get('mediaType') || '';
         let url = `/api/browse/playlist?`;
         if (filter && filter !== 'All') url += `filter=${encodeURIComponent(filter)}&`;

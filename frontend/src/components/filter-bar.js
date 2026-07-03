@@ -20,7 +20,6 @@ export class FilterBar {
         const breadcrumb = store.getBreadcrumb();
         const activeFilter = store.get('activeFilter') || '';
         const viewMode = store.get('viewMode');
-        const multiMode = store.get('multiFilterMode');
         const mediaType = store.get('mediaType') || 'all';
 
         let breadcrumbHtml = '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">';
