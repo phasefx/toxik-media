@@ -67,6 +67,43 @@ async def get_media_item(db: aiosqlite.Connection, media_id: str) -> Optional[Me
         tags=tags
     )
 
+async def get_media_items_bulk(db: aiosqlite.Connection, media_ids: List[str], media_all_tags: Dict[str, List[str]] = None) -> List[MediaItem]:
+    if not media_ids:
+        return []
+    items_map: Dict[str, MediaItem] = {}
+    batch_size = 900
+    for i in range(0, len(media_ids), batch_size):
+        batch = media_ids[i:i+batch_size]
+        placeholders = ",".join("?" * len(batch))
+        cursor = await db.execute(f"SELECT * FROM media WHERE id IN ({placeholders})", batch)
+        rows = await cursor.fetchall()
+        for row in rows:
+            tags = media_all_tags.get(row["id"], []) if media_all_tags else []
+            metadata = {}
+            if row["metadata"]:
+                try:
+                    metadata = json.loads(row["metadata"])
+                except Exception:
+                    pass
+            items_map[row["id"]] = MediaItem(
+                id=row["id"],
+                filename=row["filename"],
+                filepath=row["filepath"],
+                file_hash=row["file_hash"],
+                media_type=row["media_type"],
+                mime_type=row["mime_type"],
+                width=row["width"],
+                height=row["height"],
+                duration_ms=row["duration_ms"],
+                file_size=row["file_size"],
+                thumb_url=f"/thumbs/{row['id']}.webp" if (row["thumb_path"] or row["media_type"] in ("image", "video", "audio")) else None,
+                created_at=str(row["created_at"]) if row["created_at"] else None,
+                modified_at=str(row["modified_at"]) if row["modified_at"] else None,
+                metadata=metadata,
+                tags=tags
+            )
+    return [items_map[mid] for mid in media_ids if mid in items_map]
+
 def get_directory_tag(filepath: str) -> str:
     dir_path = Path(filepath).parent.resolve()
     parts = [

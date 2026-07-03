@@ -232,6 +232,7 @@ export class TagSidebar {
                       <span style="font-size: 0.75rem; color: var(--text-muted);">Layout:</span>
                       <div style="display: flex; background: rgba(0,0,0,0.4); border-radius: var(--radius-full); padding: 2px; border: 1px solid var(--border-color);">
                         <button class="btn btn-icon view-btn ${viewMode === 'grid' ? 'active' : ''}" data-view="grid" title="Compact Grid ▦" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'grid' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▦</button>
+                        <button class="btn btn-icon view-btn ${viewMode === 'list' ? 'active' : ''}" data-view="list" title="Simple List ☰" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'list' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">☰</button>
                         <button class="btn btn-icon view-btn ${viewMode === 'montage' ? 'active' : ''}" data-view="montage" title="Montage / Masonry ▧" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'montage' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▧</button>
                         <button class="btn btn-icon view-btn ${viewMode === 'viewport' ? 'active' : ''}" data-view="viewport" title="Full Viewport Feed ▣" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'viewport' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▣</button>
                       </div>
@@ -239,12 +240,18 @@ export class TagSidebar {
 
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                       <span style="font-size: 0.75rem; color: var(--text-muted);">Type:</span>
-                      <div style="display: flex; background: rgba(0,0,0,0.4); border-radius: var(--radius-full); padding: 2px; border: 1px solid var(--border-color);">
-                        <button class="btn btn-icon type-btn ${mediaType === 'all' ? 'active' : ''}" data-type="all" title="All Media" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'all' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🌟</button>
-                        <button class="btn btn-icon type-btn ${mediaType === 'image' ? 'active' : ''}" data-type="image" title="Images Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'image' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">📷</button>
-                        <button class="btn btn-icon type-btn ${mediaType === 'video' ? 'active' : ''}" data-type="video" title="Videos Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'video' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🎬</button>
-                        <button class="btn btn-icon type-btn ${mediaType === 'audio' ? 'active' : ''}" data-type="audio" title="Audio Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'audio' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🎵</button>
-                      </div>
+                      ${(() => {
+                          const excludedTypes = new Set((mediaType || '').split(',').map(t => t.trim()).filter(t => t.startsWith('-')).map(t => t.substring(1)));
+                          const isAll = mediaType === 'all' || (!mediaType || mediaType === '');
+                          return `
+                          <div style="display: flex; background: rgba(0,0,0,0.4); border-radius: var(--radius-full); padding: 2px; border: 1px solid var(--border-color);">
+                            <button class="btn btn-icon type-btn ${isAll ? 'active' : ''}" data-type="all" title="All Media" style="width: 30px; height: 30px; border: none; background: ${isAll ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🌟</button>
+                            <button class="btn btn-icon type-btn ${mediaType === 'image' ? 'active' : ''}" data-type="image" title="Images Only (Ctrl+Click to exclude)" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'image' ? 'var(--accent-gradient)' : (excludedTypes.has('image') ? '#ff4444' : 'transparent')}; color: #fff; font-size: 0.8rem; ${excludedTypes.has('image') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">📷</button>
+                            <button class="btn btn-icon type-btn ${mediaType === 'video' ? 'active' : ''}" data-type="video" title="Videos Only (Ctrl+Click to exclude)" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'video' ? 'var(--accent-gradient)' : (excludedTypes.has('video') ? '#ff4444' : 'transparent')}; color: #fff; font-size: 0.8rem; ${excludedTypes.has('video') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">🎬</button>
+                            <button class="btn btn-icon type-btn ${mediaType === 'audio' ? 'active' : ''}" data-type="audio" title="Audio Only (Ctrl+Click to exclude)" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'audio' ? 'var(--accent-gradient)' : (excludedTypes.has('audio') ? '#ff4444' : 'transparent')}; color: #fff; font-size: 0.8rem; ${excludedTypes.has('audio') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">🎵</button>
+                          </div>
+                          `;
+                      })()}
                     </div>
 
                     <div style="display: flex; gap: 6px;">
@@ -550,9 +557,23 @@ export class TagSidebar {
         }
 
         this.container.querySelectorAll('.type-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', (e) => {
                 const type = btn.getAttribute('data-type');
-                store.setMediaType(type);
+                if ((e.ctrlKey || e.metaKey) && type !== 'all') {
+                    const current = store.get('mediaType') || 'all';
+                    const excluded = new Set(
+                        current.split(',').map(t => t.trim()).filter(t => t.startsWith('-')).map(t => t.substring(1))
+                    );
+                    if (excluded.has(type)) {
+                        excluded.delete(type);
+                    } else {
+                        excluded.add(type);
+                    }
+                    const newType = excluded.size > 0 ? Array.from(excluded).map(t => '-' + t).join(',') : 'all';
+                    store.setMediaType(newType);
+                } else {
+                    store.setMediaType(type);
+                }
             });
         });
 

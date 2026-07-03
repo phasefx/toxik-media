@@ -2,6 +2,7 @@ import './styles/index.css';
 import './styles/grid.css';
 import './styles/montage.css';
 import './styles/viewport.css';
+import './styles/list.css';
 
 import { store } from './state/store.js';
 import { TagSidebar } from './components/tag-sidebar.js';
@@ -137,11 +138,11 @@ class App {
         }
 
         // Render based on View Mode
-        if (viewMode === 'grid') {
-            this.galleryGrid.className = 'view-grid';
+        if (viewMode === 'grid' || viewMode === 'list') {
+            this.galleryGrid.className = `view-${viewMode}`;
             this.galleryGrid.innerHTML = results.map(r => {
-                if (r.type === 'aggregate') return renderAggregateCard(r, 'grid');
-                return renderMediaCard(r.media, 'grid');
+                if (r.type === 'aggregate') return renderAggregateCard(r, viewMode);
+                return renderMediaCard(r.media, viewMode);
             }).join('');
         } else if (viewMode === 'montage') {
             this.galleryGrid.className = 'view-montage';

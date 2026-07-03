@@ -14,6 +14,45 @@ export function renderMediaCard(item, viewMode = 'grid') {
         durationStr = `${min}:${sec}`;
     }
 
+    if (viewMode === 'list') {
+        let sizeStr = '';
+        if (item.file_size) {
+            const bytes = item.file_size;
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            sizeStr = parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+        const typeIcon = isVideo ? '🎬' : isAudio ? '🎵' : '📷';
+        const tagPillsList = (item.tags || []).slice(0, 4).map(t => `
+          <span class="tag-pill" data-filter="${t}" style="font-size: 0.7rem; padding: 2px 8px; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 4px; color: #fff;">
+            ${t}
+          </span>
+        `).join('');
+
+        return `
+          <div class="list-row media-card card ${isSelected ? 'selected' : ''}" data-id="${item.id}"
+               style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: background 0.15s ease;">
+            <div style="display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1;">
+              <div class="select-checkbox" data-id="${item.id}"
+                   style="width: 20px; height: 20px; border-radius: 4px; background: ${isSelected ? 'var(--accent-cyan)' : 'rgba(0,0,0,0.4)'}; border: 1px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                ${isSelected ? '<span style="color: #000; font-weight: 800; font-size: 0.75rem;">✓</span>' : ''}
+              </div>
+              <span style="font-size: 1.2rem; flex-shrink: 0;">${typeIcon}</span>
+              <span style="font-size: 0.95rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 350px;" title="${item.filename}">${item.filename}</span>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; overflow: hidden; max-height: 24px;">${tagPillsList}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px; flex-shrink: 0; margin-left: 16px; color: var(--text-secondary); font-size: 0.85rem;">
+              <span>${item.width && item.height ? `${item.width} × ${item.height}` : durationStr}</span>
+              <span style="width: 70px; text-align: right;">${sizeStr}</span>
+              <button class="btn btn-secondary btn-icon" title="Copy Filepath"
+                      onclick="event.stopPropagation(); navigator.clipboard.writeText('${item.filepath}').then(() => alert('Copied filepath to clipboard!'));"
+                      style="padding: 4px 8px; font-size: 0.8rem;">📋</button>
+            </div>
+          </div>
+        `;
+    }
+
     const animThumbs = store.get('animThumbs', true) !== false;
     const cardClass = viewMode === 'montage' ? 'montage-card media-card' : 'card media-card';
     const imgClass = viewMode === 'montage' ? 'montage-img' : 'card-img';

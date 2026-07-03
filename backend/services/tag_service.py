@@ -248,8 +248,23 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
       - group_parent: dict mapping next_segment -> matching inclusion pattern that produced it
     """
     valid_media_ids = None
-    if media_type:
-        type_cursor = await db.execute("SELECT id FROM media WHERE media_type = ?", (media_type,))
+    if media_type and media_type != "all":
+        types_list = [t.strip() for t in media_type.split(",") if t.strip()]
+        included_types = [t for t in types_list if not t.startswith("-")]
+        excluded_types = [t[1:] for t in types_list if t.startswith("-")]
+
+        query = "SELECT id FROM media WHERE 1=1"
+        params = []
+        if included_types:
+            placeholders = ",".join("?" * len(included_types))
+            query += f" AND media_type IN ({placeholders})"
+            params.extend(included_types)
+        if excluded_types:
+            placeholders = ",".join("?" * len(excluded_types))
+            query += f" AND media_type NOT IN ({placeholders})"
+            params.extend(excluded_types)
+
+        type_cursor = await db.execute(query, params)
         type_rows = await type_cursor.fetchall()
         valid_media_ids = {r["id"] for r in type_rows}
     else:

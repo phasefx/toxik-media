@@ -12,6 +12,29 @@ export function renderAggregateCard(item, viewMode = 'grid') {
     const isPartiallySelected = selectedCount > 0 && selectedCount < groupIds.length;
     const isSelected = isAllSelected || isPartiallySelected;
 
+    if (viewMode === 'list') {
+        return `
+          <div class="list-row media-card card-aggregate ${isSelected ? 'selected' : ''}" data-filter="${item.full_filter}"
+               style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: background 0.15s ease;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div class="aggregate-select-checkbox" data-group-filter="${item.full_filter}"
+                   style="width: 22px; height: 22px; border-radius: 4px; background: ${isAllSelected ? 'var(--accent-cyan)' : (isPartiallySelected ? 'rgba(0, 240, 255, 0.4)' : 'rgba(0,0,0,0.4)')}; border: 1px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                ${isAllSelected ? '<span style="color: #000; font-weight: 800; font-size: 0.8rem;">✓</span>' : (isPartiallySelected ? '<span style="color: #fff; font-weight: 800; font-size: 0.7rem;">─</span>' : '')}
+              </div>
+              <span style="font-size: 1.3rem;">📁</span>
+              <div>
+                <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase; margin-right: 8px;">Tag Group</span>
+                <span style="font-size: 1.05rem; font-weight: 700; color: #fff;">${item.label}</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <span class="badge" style="background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan); border: 1px solid rgba(0, 240, 255, 0.3);">🗂 ${item.count} items</span>
+              <span style="color: var(--text-secondary); font-weight: 800;">➔</span>
+            </div>
+          </div>
+        `;
+    }
+
     const cardClass = viewMode === 'montage' ? 'montage-card media-card card-aggregate' : 'card media-card card-aggregate';
     const imgClass = viewMode === 'montage' ? 'montage-img' : 'card-img';
     const rep = item.representative;

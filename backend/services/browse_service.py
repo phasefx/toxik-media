@@ -99,12 +99,9 @@ async def browse_media(
 
     # Process direct items ONLY when no Tag Groups are being displayed in this set
     if not has_aggregates:
-        # Fetch full media items for direct_items
-        direct_media_items = []
-        for mid in direct_items:
-            item = await get_media_item(db, mid)
-            if item:
-                direct_media_items.append(item)
+        # Fetch full media items for direct_items in bulk
+        from backend.services.media_service import get_media_items_bulk
+        direct_media_items = await get_media_items_bulk(db, direct_items, media_all_tags)
 
         # Sort direct items
         reverse = (sort_dir.lower() == "desc")
@@ -131,14 +128,10 @@ async def browse_media(
 
     total_items = len(results)
 
-    # Pagination: When going into a leaf tag (no tag groups displayed, specific tag active), remove any caps
-    if not has_aggregates and filter_pattern and filter_pattern != "All":
-        paginated_results = results
-        limit = max(total_items, 1)
-    else:
-        start_idx = (page - 1) * limit
-        end_idx = start_idx + limit
-        paginated_results = results[start_idx:end_idx]
+    # Always paginate to prevent overloading frontend DOM and network connections
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    paginated_results = results[start_idx:end_idx]
 
     return BrowseResponse(
         filter=filter_pattern,

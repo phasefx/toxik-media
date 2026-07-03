@@ -109,7 +109,7 @@ class Store extends EventTarget {
     }
 
     async loadBrowse(reset = false) {
-        if (this.state.isLoading) return;
+        if (this.state.isLoading && !reset) return;
         if (reset) {
             const pl = this.state.playlist;
             if (pl && pl.isPlaying) {
@@ -299,7 +299,8 @@ class Store extends EventTarget {
                 page: 1,
                 results: [],
                 selectedIds: new Set(),
-                lastSelectedId: null
+                lastSelectedId: null,
+                isLoading: false
             });
             await Promise.all([
                 this.loadTags(),
