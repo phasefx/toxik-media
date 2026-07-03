@@ -90,6 +90,7 @@ export class FilterBar {
               <button class="btn btn-primary" id="btn-top-i2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Image-to-Image Generation (Requires Selection)">🖼️ I2I</button>
               <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
               <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
+              <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; margin-left: 8px; border-radius: 6px; cursor: pointer;" title="Workflow & Path Configuration">⚙️</button>
             </div>
           </div>
         `;
@@ -197,6 +198,11 @@ export class FilterBar {
             });
         }
 
+        const configBtn = this.container.querySelector('#btn-open-config');
+        if (configBtn) {
+            configBtn.addEventListener('click', () => this.showConfigModal());
+        }
+
         this.updateDisabledStates();
     }
 
@@ -209,6 +215,108 @@ export class FilterBar {
                 btn.style.opacity = hasSelection ? '1' : '0.4';
                 btn.style.cursor = hasSelection ? 'pointer' : 'not-allowed';
             }
+        });
+    }
+
+    showConfigModal() {
+        const existing = document.querySelector('#config-modal-backdrop');
+        if (existing) existing.remove();
+
+        const uploadMode = localStorage.getItem('toxik_cfg_upload_mode') || 'no_upload';
+        const pathMode = localStorage.getItem('toxik_cfg_path_mode') || 'full_path';
+        const pathPrefix = localStorage.getItem('toxik_cfg_path_prefix') || '';
+
+        const modalEl = document.createElement('div');
+        modalEl.id = 'config-modal-backdrop';
+        modalEl.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 30px; animation: fadeIn 0.15s ease;';
+
+        modalEl.innerHTML = `
+          <div class="glass" style="width: 100%; max-width: 580px; border-radius: var(--radius-lg); background: var(--bg-card); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 0 50px rgba(0,0,0,0.9); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="padding: 18px 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03);">
+              <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <span style="color: var(--accent-cyan);">⚙️</span> Workflow & Path Configuration
+              </h3>
+              <button id="btn-close-config-modal" class="btn btn-icon" style="width: 32px; height: 32px; font-size: 1.1rem; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;">✕</button>
+            </div>
+            <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px; max-height: 70vh; overflow-y: auto;">
+              <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                Configure how media files (images, videos, audio) are prepared and inserted into ComfyUI workflows when jobs are submitted. These settings are sticky across sessions.
+              </p>
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 8px;">
+                  1. ComfyUI Upload Helper
+                </label>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0 0 12px 0;">
+                  Controls whether files are uploaded to ComfyUI's /upload/image endpoint prior to workflow submission.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_upload_mode" value="no_upload" ${uploadMode === 'no_upload' ? 'checked' : ''} style="accent-color: var(--accent-cyan);" />
+                    <span>1) Default: No upload (use local filesystem directly)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_upload_mode" value="upload" ${uploadMode === 'upload' ? 'checked' : ''} style="accent-color: var(--accent-cyan);" />
+                    <span>2) Upload (POST files to ComfyUI /upload/image)</span>
+                  </label>
+                </div>
+              </div>
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--accent-purple); margin-bottom: 8px;">
+                  2. Filename & Path Insertion Mode
+                </label>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0 0 12px 0;">
+                  Controls how path strings are formatted when populating workflow input parameters.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_path_mode" value="full_path" ${pathMode === 'full_path' ? 'checked' : ''} style="accent-color: var(--accent-purple);" />
+                    <span>1) Default: Use full real paths (e.g. /home/coding/.../file.png)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_path_mode" value="rel_comfyui_outputs" ${pathMode === 'rel_comfyui_outputs' ? 'checked' : ''} style="accent-color: var(--accent-purple);" />
+                    <span>2) Use paths relative to comfyui_outputs folder (for symlinks / sshfs)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_path_mode" value="filename_only" ${pathMode === 'filename_only' ? 'checked' : ''} style="accent-color: var(--accent-purple);" />
+                    <span>3) Strip all pathing and just use filename (e.g. file.png)</span>
+                  </label>
+                </div>
+              </div>
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 8px;">
+                  3. Custom Path Prefix
+                </label>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0 0 12px 0;">
+                  Optional string to prepend in front of the path regardless of which pathing option is chosen (e.g. /mnt/remote/input/ or docker_vol/).
+                </p>
+                <input type="text" id="cfg-path-prefix-input" class="input" placeholder="e.g. /mnt/comfy/inputs/ (leave empty for none)" value="${pathPrefix}" style="width: 100%; height: 38px; font-size: 0.85rem; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 12px; color: #fff;" />
+              </div>
+            </div>
+            <div style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; background: rgba(255,255,255,0.02);">
+              <button id="btn-config-save" class="btn btn-primary" style="height: 38px; padding: 0 24px; font-weight: 700; background: var(--accent-gradient); border: none; border-radius: 6px; color: #fff; cursor: pointer;">Save Settings</button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(modalEl);
+
+        const closeModal = () => modalEl.remove();
+
+        modalEl.querySelector('#btn-close-config-modal')?.addEventListener('click', closeModal);
+        modalEl.addEventListener('click', (e) => {
+            if (e.target === modalEl) closeModal();
+        });
+
+        modalEl.querySelector('#btn-config-save')?.addEventListener('click', () => {
+            const selUpload = modalEl.querySelector('input[name="cfg_upload_mode"]:checked')?.value || 'no_upload';
+            const selPath = modalEl.querySelector('input[name="cfg_path_mode"]:checked')?.value || 'full_path';
+            const valPrefix = modalEl.querySelector('#cfg-path-prefix-input')?.value || '';
+
+            localStorage.setItem('toxik_cfg_upload_mode', selUpload);
+            localStorage.setItem('toxik_cfg_path_mode', selPath);
+            localStorage.setItem('toxik_cfg_path_prefix', valPrefix);
+
+            closeModal();
         });
     }
 }

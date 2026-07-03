@@ -117,9 +117,15 @@ export const api = {
     },
 
     async submitJob(workflow_id, inputs, tags = []) {
+        const enrichedInputs = {
+            ...inputs,
+            _upload_mode: localStorage.getItem('toxik_cfg_upload_mode') || 'no_upload',
+            _path_mode: localStorage.getItem('toxik_cfg_path_mode') || 'full_path',
+            _path_prefix: localStorage.getItem('toxik_cfg_path_prefix') || ''
+        };
         return def_fetch('/api/generate', {
             method: 'POST',
-            body: JSON.stringify({ workflow_id, inputs, tags })
+            body: JSON.stringify({ workflow_id, inputs: enrichedInputs, tags })
         });
     },
 

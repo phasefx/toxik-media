@@ -231,6 +231,9 @@ async def _execute_job(db, job: dict):
             return
 
         front = inputs.pop("_front", False)
+        upload_mode = inputs.pop("_upload_mode", "no_upload")
+        path_mode = inputs.pop("_path_mode", "full_path")
+        path_prefix = inputs.pop("_path_prefix", "")
 
         count = 1
         chain_count = 1
@@ -309,11 +312,28 @@ async def _execute_job(db, job: dict):
 
             for pk, pv in list(values.items()):
                 if isinstance(pv, str) and os.path.exists(pv) and any(pv.lower().endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v", ".wav", ".mp3", ".flac", ".ogg")):
-                    try:
-                        logger.info(f"Uploading file {pv} to ComfyUI for field {pk}")
-                        values[pk] = await upload_to_comfyui(Path(pv), settings.comfyui_host, settings.comfyui_port)
-                    except Exception as e:
-                        logger.warning(f"Failed to upload {pv} to ComfyUI: {e}")
+                    filepath = Path(pv).resolve()
+                    if upload_mode == "upload":
+                        try:
+                            logger.info(f"Uploading file {filepath} to ComfyUI for field {pk}")
+                            await upload_to_comfyui(filepath, settings.comfyui_host, settings.comfyui_port)
+                        except Exception as e:
+                            logger.warning(f"Failed to upload {filepath} to ComfyUI: {e}")
+
+                    if path_mode == "filename_only":
+                        transformed = filepath.name
+                    elif path_mode == "rel_comfyui_outputs":
+                        try:
+                            transformed = str(filepath.relative_to(settings.comfyui_output_dir.resolve()))
+                        except ValueError:
+                            transformed = os.path.relpath(filepath, settings.comfyui_output_dir.resolve())
+                    else:
+                        transformed = str(filepath)
+
+                    if path_prefix:
+                        transformed = f"{path_prefix}{transformed}"
+
+                    values[pk] = transformed
 
             form_patches = [
                 Patch(node_id=ff.node_id, field=ff.field_name, source=f"form_{i}")
