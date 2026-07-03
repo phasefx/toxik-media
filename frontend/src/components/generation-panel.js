@@ -206,7 +206,7 @@ export class GenerationPanel {
                     inputsHtml += `
                       <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; ${gridCol}">
                         <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">
-                          ${ff.label}
+                          ${ff.node_id ? `${ff.node_id} - ${ff.label}` : ff.label}
                         </label>
                         ${fieldHtml}
                       </div>
@@ -641,6 +641,9 @@ export class GenerationPanel {
                             }
                             if (ff.field_name && ff.field_name !== 'value') {
                                 inputs[ff.field_name] = val;
+                            }
+                            if (ff.node_id) {
+                                inputs[`${ff.node_id} - ${ff.label}`] = val;
                             }
                             inputs[ff.label] = val;
                         }

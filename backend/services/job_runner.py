@@ -138,7 +138,8 @@ async def compute_patched_workflow(workflow_id: str, inputs: dict, seed: Optiona
 
     for i, ff in enumerate(wf.form_fields):
         key = ff.field_name
-        val = inputs_copy.get(ff.label, inputs_copy.get(key, ff.default))
+        unique_label = f"{ff.node_id} - {ff.label}" if ff.node_id else ff.label
+        val = inputs_copy.get(unique_label, inputs_copy.get(ff.label, inputs_copy.get(key, ff.default)))
 
         if key in ("_count", "_chain") or key.startswith("_"):
             continue
@@ -236,7 +237,8 @@ async def _execute_job(db, job: dict):
 
         for i, ff in enumerate(wf.form_fields):
             key = ff.field_name
-            val = inputs.get(ff.label, inputs.get(key, ff.default))
+            unique_label = f"{ff.node_id} - {ff.label}" if ff.node_id else ff.label
+            val = inputs.get(unique_label, inputs.get(ff.label, inputs.get(key, ff.default)))
 
             if key == "_count":
                 try: count = max(1, int(float(val)))
