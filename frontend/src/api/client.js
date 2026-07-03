@@ -10,11 +10,18 @@ async function def_fetch(endpoint, options = {}) {
             ...options
         });
         if (!response.ok) {
+            if (response.status === 502 || response.status === 503 || response.status === 504) {
+                if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('toxik-api-error', { detail: { status: response.status } }));
+            }
             const err = await response.json().catch(() => ({ detail: response.statusText }));
             throw new Error(err.detail || 'API Request failed');
         }
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('toxik-api-success'));
         return await response.json();
     } catch (error) {
+        if (typeof window !== 'undefined' && (error.name === 'TypeError' || error.message?.toLowerCase().includes('fetch') || error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('failed'))) {
+            window.dispatchEvent(new CustomEvent('toxik-api-error', { detail: { error } }));
+        }
         console.error(`API Error on ${endpoint}:`, error);
         throw error;
     }
@@ -172,5 +179,9 @@ export const api = {
         return def_fetch(`/api/catalogs/${encodeURIComponent(name)}`, {
             method: 'DELETE'
         });
+    },
+
+    async getHealth() {
+        return def_fetch('/api/health');
     }
 };

@@ -49,6 +49,7 @@ export class FilterBar {
 
         const catalogs = store.get('catalogs') || [];
         const activeCatalog = store.get('activeCatalog') || 'toxik.db';
+        const isConnected = store.get('isConnected') !== false;
         const catalogsOptions = catalogs.map(c => `
           <option value="${c.name}" ${c.name === activeCatalog ? 'selected' : ''} style="background: var(--bg-card); color: #fff;">${c.name}</option>
         `).join('');
@@ -91,6 +92,17 @@ export class FilterBar {
               <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
               <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
               <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; margin-left: 8px; border-radius: 6px; cursor: pointer;" title="Workflow & Path Configuration">⚙️</button>
+              ${isConnected ? `
+                <div id="conn-status-indicator" title="Backend Server: Online & Responsive" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #00ff88; margin-left: 4px; cursor: pointer; transition: all 0.2s ease;">
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 8px #00ff88; display: inline-block;"></span>
+                  <span>ONLINE</span>
+                </div>
+              ` : `
+                <div id="conn-status-indicator" title="Backend Server: Offline / Unreachable (Click to retry connection)" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(255, 68, 68, 0.15); border: 1px solid rgba(255, 68, 68, 0.6); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #ff4444; margin-left: 4px; cursor: pointer; transition: all 0.2s ease; animation: pulseGlow 1s infinite;">
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #ff4444; box-shadow: 0 0 10px #ff4444; display: inline-block;"></span>
+                  <span>OFFLINE</span>
+                </div>
+              `}
             </div>
           </div>
         `;
@@ -201,6 +213,13 @@ export class FilterBar {
         const configBtn = this.container.querySelector('#btn-open-config');
         if (configBtn) {
             configBtn.addEventListener('click', () => this.showConfigModal());
+        }
+
+        const connBtn = this.container.querySelector('#conn-status-indicator');
+        if (connBtn) {
+            connBtn.addEventListener('click', () => {
+                store.checkConnection();
+            });
         }
 
         this.updateDisabledStates();

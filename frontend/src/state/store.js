@@ -32,8 +32,16 @@ class Store extends EventTarget {
             isTagCloudOpen: false,
             isSidebarCollapsed: false,
             catalogs: [],
-            activeCatalog: ''
+            activeCatalog: '',
+            isConnected: true
         };
+        if (typeof window !== 'undefined') {
+            window.addEventListener('toxik-api-success', () => this.setConnectionStatus(true));
+            window.addEventListener('toxik-api-error', () => this.setConnectionStatus(false));
+            window.addEventListener('offline', () => this.setConnectionStatus(false));
+            window.addEventListener('online', () => this.checkConnection());
+            this.startHealthPoll();
+        }
     }
 
     get(key) {
@@ -290,6 +298,31 @@ class Store extends EventTarget {
             alert(`Failed to switch catalog: ${e.message || e}`);
             this.set({ isLoading: false });
         }
+    }
+
+    setConnectionStatus(status) {
+        if (this.state.isConnected !== status) {
+            this.set({ isConnected: status });
+        }
+    }
+
+    async checkConnection() {
+        try {
+            await api.getHealth();
+            this.setConnectionStatus(true);
+            return true;
+        } catch (e) {
+            this.setConnectionStatus(false);
+            return false;
+        }
+    }
+
+    startHealthPoll() {
+        if (this.healthInterval) clearInterval(this.healthInterval);
+        this.checkConnection();
+        this.healthInterval = setInterval(() => {
+            this.checkConnection();
+        }, 5000);
     }
 }
 
