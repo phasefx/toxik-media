@@ -60,7 +60,7 @@ async def get_media_item(db: aiosqlite.Connection, media_id: str) -> Optional[Me
         height=row["height"],
         duration_ms=row["duration_ms"],
         file_size=row["file_size"],
-        thumb_url=f"/thumbs/{row['id']}.webp" if row["media_type"] in ("image", "video") else None,
+        thumb_url=f"/thumbs/{row['id']}.webp" if (row["thumb_path"] or row["media_type"] in ("image", "video", "audio")) else None,
         created_at=str(row["created_at"]) if row["created_at"] else None,
         modified_at=str(row["modified_at"]) if row["modified_at"] else None,
         metadata=metadata,
@@ -183,7 +183,7 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
         meta = await get_media_metadata(filepath, media_type)
 
         # Generate thumbnail
-        thumb_path = await generate_thumbnail(filepath, media_id, media_type)
+        thumb_path = await generate_thumbnail(filepath, media_id, media_type, db=db)
 
         try:
             await db.execute("""
@@ -441,5 +441,12 @@ async def batch_tag_media(
         for at in add_tags:
             tid = await ensure_tag_exists(db, at)
             await db.execute("INSERT OR IGNORE INTO media_tags (media_id, tag_id) VALUES (?, ?)", (mid, tid))
+
+    if add_tags or replace_tags:
+        try:
+            from backend.services.thumbnail_service import resolve_missing_audio_thumbnails
+            await resolve_missing_audio_thumbnails(db, media_ids)
+        except Exception:
+            pass
 
     await db.commit()

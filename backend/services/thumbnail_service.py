@@ -1,8 +1,12 @@
 import os
 import asyncio
 import subprocess
+import random
+import shutil
+from typing import Optional, List
 from pathlib import Path
 from PIL import Image
+import aiosqlite
 from backend.config import settings
 from backend.routers.websocket import manager
 import logging
@@ -10,17 +14,164 @@ import time
 
 logger = logging.getLogger(__name__)
 
-async def generate_thumbnail(filepath: str, media_id: str, media_type: str) -> str:
+async def resolve_audio_thumbnail(media_id: str, filepath: str, db: Optional[aiosqlite.Connection] = None, force_rebuild: bool = False) -> str:
     """
-    Generates a thumbnail for an image or video file.
+    Resolves a thumbnail for an audio file based on two criteria:
+    1. If there are videos or images in the same folder, randomly use one of those.
+    2. Otherwise, try to re-use a thumbnail from media that has matching tags with the audio,
+       with the most nested compound tags getting priority.
+    """
+    thumb_filename = f"{media_id}.webp"
+    thumb_path = settings.thumb_dir / thumb_filename
+    rel_path = f"thumbs/{thumb_filename}"
+
+    if thumb_path.exists() and not force_rebuild:
+        return rel_path
+
+    if force_rebuild and thumb_path.exists():
+        try:
+            os.remove(thumb_path)
+        except Exception:
+            pass
+
+    parent_dir = Path(filepath).parent
+    image_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff"}
+    video_exts = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
+    valid_exts = image_exts | video_exts
+
+    # Criterion 1: Videos or images in the same folder (check filesystem first)
+    candidates = []
+    try:
+        if parent_dir.exists() and parent_dir.is_dir():
+            for f in parent_dir.iterdir():
+                if f.is_file() and f.resolve() != Path(filepath).resolve() and f.suffix.lower() in valid_exts:
+                    candidates.append(f)
+    except Exception as e:
+        logger.warning(f"Error scanning folder for audio thumb candidates: {e}")
+
+    if candidates:
+        chosen = random.choice(candidates)
+        # Try to use existing thumbnail from DB if available
+        if db is not None:
+            try:
+                cursor = await db.execute("SELECT id, thumb_path FROM media WHERE filepath = ?", (str(chosen),))
+                row = await cursor.fetchone()
+                if row and row["thumb_path"]:
+                    existing_thumb = settings.thumb_dir / Path(row["thumb_path"]).name
+                    if existing_thumb.exists():
+                        await asyncio.to_thread(shutil.copy2, existing_thumb, thumb_path)
+                        return rel_path
+            except Exception:
+                pass
+        # Generate directly from chosen file
+        try:
+            if chosen.suffix.lower() in image_exts:
+                await asyncio.to_thread(_process_image_thumb, str(chosen), str(thumb_path))
+            elif chosen.suffix.lower() in video_exts:
+                await _process_video_thumb(str(chosen), str(thumb_path))
+            if thumb_path.exists():
+                return rel_path
+        except Exception as e:
+            logger.warning(f"Failed to generate audio thumb from local file {chosen}: {e}")
+
+    # Criterion 1 fallback: check DB for any image/video in exact same folder
+    if db is not None:
+        try:
+            cursor = await db.execute("""
+                SELECT id, filepath, thumb_path FROM media
+                WHERE media_type IN ('image', 'video')
+                  AND id != ?
+                  AND thumb_path IS NOT NULL AND thumb_path != ''
+            """, (media_id,))
+            rows = await cursor.fetchall()
+            db_candidates = []
+            for r in rows:
+                try:
+                    if Path(r["filepath"]).parent.resolve() == parent_dir.resolve():
+                        db_candidates.append(r)
+                except Exception:
+                    pass
+            if db_candidates:
+                chosen_row = random.choice(db_candidates)
+                existing_thumb = settings.thumb_dir / Path(chosen_row["thumb_path"]).name
+                if existing_thumb.exists():
+                    await asyncio.to_thread(shutil.copy2, existing_thumb, thumb_path)
+                    return rel_path
+        except Exception as e:
+            logger.warning(f"Error checking DB for same folder audio thumb: {e}")
+
+    # Criterion 2: Try to re-use a thumbnail from media that has matching tags with the audio,
+    # with the most nested compound tags getting priority.
+    if db is not None:
+        try:
+            cursor = await db.execute("""
+                SELECT m.id, m.thumb_path, MAX(t.depth) as max_depth
+                FROM media m
+                JOIN media_tags mt ON m.id = mt.media_id
+                JOIN tags t ON mt.tag_id = t.id
+                WHERE m.id != ?
+                  AND m.thumb_path IS NOT NULL AND m.thumb_path != ''
+                  AND mt.tag_id IN (
+                      SELECT tag_id FROM media_tags WHERE media_id = ?
+                  )
+                GROUP BY m.id
+                ORDER BY max_depth DESC
+            """, (media_id, media_id))
+            rows = await cursor.fetchall()
+            if rows:
+                best_depth = rows[0]["max_depth"]
+                best_rows = [r for r in rows if r["max_depth"] == best_depth]
+                chosen_row = random.choice(best_rows)
+                existing_thumb = settings.thumb_dir / Path(chosen_row["thumb_path"]).name
+                if existing_thumb.exists():
+                    await asyncio.to_thread(shutil.copy2, existing_thumb, thumb_path)
+                    return rel_path
+        except Exception as e:
+            logger.warning(f"Error resolving audio thumb from matching tags: {e}")
+
+    return ""
+
+async def resolve_missing_audio_thumbnails(db: aiosqlite.Connection, media_ids: Optional[List[str]] = None, force_rebuild: bool = False):
+    """
+    Attempts to resolve thumbnails for audio files that do not currently have one (or all if force_rebuild).
+    """
+    try:
+        query = "SELECT id, filepath, thumb_path FROM media WHERE media_type = 'audio'"
+        params = []
+        if media_ids:
+            placeholders = ",".join("?" for _ in media_ids)
+            query += f" AND id IN ({placeholders})"
+            params.extend(media_ids)
+        if not force_rebuild:
+            query += " AND (thumb_path IS NULL OR thumb_path = '')"
+
+        cursor = await db.execute(query, params)
+        rows = await cursor.fetchall()
+        for r in rows:
+            rel_path = await resolve_audio_thumbnail(r["id"], r["filepath"], db=db, force_rebuild=force_rebuild)
+            if rel_path:
+                await db.execute("UPDATE media SET thumb_path = ? WHERE id = ?", (rel_path, r["id"]))
+        await db.commit()
+    except Exception as e:
+        logger.warning(f"Error in resolve_missing_audio_thumbnails: {e}")
+
+async def generate_thumbnail(filepath: str, media_id: str, media_type: str, db: Optional[aiosqlite.Connection] = None, force: bool = False) -> str:
+    """
+    Generates a thumbnail for an image, video, or audio file.
     Returns the relative path to the thumbnail file (e.g. 'thumbs/{media_id}.webp').
     """
     thumb_filename = f"{media_id}.webp"
     thumb_path = settings.thumb_dir / thumb_filename
     rel_path = f"thumbs/{thumb_filename}"
 
-    if thumb_path.exists():
+    if thumb_path.exists() and not force:
         return rel_path
+
+    if force and thumb_path.exists():
+        try:
+            os.remove(thumb_path)
+        except Exception:
+            pass
 
     t0 = time.time()
     logger.info(f"[Thumbnail] Generating {media_type} thumbnail for ID {media_id} ({Path(filepath).name})...")
@@ -40,6 +191,11 @@ async def generate_thumbnail(filepath: str, media_id: str, media_type: str) -> s
             await asyncio.to_thread(_process_image_thumb, filepath, str(thumb_path))
         elif media_type == "video":
             await _process_video_thumb(filepath, str(thumb_path))
+        elif media_type == "audio":
+            res = await resolve_audio_thumbnail(media_id, filepath, db=db, force_rebuild=force)
+            if not res:
+                return ""
+            return res
         else:
             return ""
 

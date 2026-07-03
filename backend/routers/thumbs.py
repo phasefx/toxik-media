@@ -39,7 +39,7 @@ async def rebuild_thumbnail(media_id: str, db: aiosqlite.Connection = Depends(ge
             logger.warning(f"Could not remove old thumbnail {thumb_path}: {e}")
 
     logger.info(f"[Thumbnail] Rebuilding thumbnail for ID {media_id} ({Path(filepath).name})...")
-    rel_thumb = await generate_thumbnail(filepath, media_id, media_type)
+    rel_thumb = await generate_thumbnail(filepath, media_id, media_type, db=db, force=True)
     from backend.services.thumbnail_service import get_media_metadata
     meta = await get_media_metadata(filepath, media_type)
     from backend.services.media_service import auto_tag_media
@@ -98,7 +98,7 @@ async def reingest_media_batch(req: ReingestRequest, db: aiosqlite.Connection = 
             try: os.remove(thumb_path)
             except Exception: pass
 
-        rel_thumb = await generate_thumbnail(filepath, mid, media_type)
+        rel_thumb = await generate_thumbnail(filepath, mid, media_type, db=db, force=True)
         from backend.services.thumbnail_service import get_media_metadata
         meta = await get_media_metadata(filepath, media_type)
         if rel_thumb and thumb_path.exists():
@@ -144,7 +144,7 @@ async def serve_thumbnail(filename: str, db: aiosqlite.Connection = Depends(get_
             row = await cursor.fetchone()
             if row and os.path.exists(row["filepath"]):
                 logger.info(f"[On-Demand Thumb] Missing thumbnail for {filename}; triggering generation for ID {media_id} ({Path(row['filepath']).name})...")
-                rel_thumb = await generate_thumbnail(row["filepath"], media_id, row["media_type"])
+                rel_thumb = await generate_thumbnail(row["filepath"], media_id, row["media_type"], db=db)
                 if rel_thumb and thumb_path.exists():
                     try:
                         await db.execute("UPDATE media SET thumb_path = ? WHERE id = ? AND (thumb_path IS NULL OR thumb_path = '')", (rel_thumb, media_id))

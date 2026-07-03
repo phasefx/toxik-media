@@ -46,9 +46,12 @@ export function renderMediaCard(item, viewMode = 'grid') {
                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; background: #000;"></video>
           </div>
         ` : isAudio ? `
-          <div class="${imgClass}" style="background: linear-gradient(135deg, #111 0%, #1a1a2e 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; min-height: 180px; color: #fff; text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 8px; animation: pulseGlow 2s infinite;">🎵</div>
-            <div style="font-size: 0.85rem; font-weight: 600; word-break: break-all; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.filename}</div>
+          <div class="audio-preview-container ${imgClass}" style="position: relative; overflow: hidden; background: linear-gradient(135deg, #111 0%, #1a1a2e 100%); display: flex; align-items: center; justify-content: center; min-height: 180px;">
+            ${item.thumb_url ? `<img class="thumb-preview" src="${item.thumb_url}" alt="${item.filename}" loading="lazy" onerror="this.style.display='none';" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.6);" />` : ''}
+            <div style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; color: #fff; text-align: center; text-shadow: 0 2px 8px rgba(0,0,0,0.8); width: 100%;">
+              <div style="font-size: 2.8rem; margin-bottom: 6px; animation: pulseGlow 2s infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));">🎵</div>
+              <div style="font-size: 0.85rem; font-weight: 600; word-break: break-all; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15);">${item.filename}</div>
+            </div>
             <audio src="/api/media/${item.id}/file" preload="none" style="display: none;"></audio>
           </div>
         ` : `

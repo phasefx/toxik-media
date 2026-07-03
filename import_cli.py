@@ -197,7 +197,7 @@ async def _rebuild_item_thumb(db, filepath: str, media_id: str, media_type: str 
         try: os.remove(static_p)
         except Exception: pass
 
-    rel_thumb = await generate_thumbnail(filepath, media_id, media_type)
+    rel_thumb = await generate_thumbnail(filepath, media_id, media_type, db=db, force=True)
     if rel_thumb:
         await db.execute("UPDATE media SET thumb_path = ? WHERE id = ?", (rel_thumb, media_id))
         await db.commit()
@@ -361,7 +361,7 @@ async def run_ingestion(files: List[str], custom_tags: List[str], verbose: bool,
 
                 try:
                     meta = await get_media_metadata(filepath, media_type)
-                    thumb_path = await generate_thumbnail(filepath, media_id, media_type)
+                    thumb_path = await generate_thumbnail(filepath, media_id, media_type, db=db)
 
                     await db.execute("""
                         INSERT INTO media (

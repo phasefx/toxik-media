@@ -206,10 +206,13 @@ export class DetailModal {
                 ${isVideo ? `
                   <video src="${mediaUrl}" controls autoplay ${store.get('playlist')?.isPlaying ? '' : 'loop'} style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
                 ` : item.media_type === 'audio' ? `
-                  <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); padding: 32px;">
-                    <div style="font-size: 6rem; margin-bottom: 24px; animation: pulseGlow 2s infinite;">🎵</div>
-                    <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 24px; word-break: break-all; text-align: center;">${item.filename}</h2>
-                    <audio src="${mediaUrl}" controls autoplay ${store.get('playlist')?.isPlaying ? '' : 'loop'} style="width: 80%; max-width: 500px;"></audio>
+                  <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); padding: 32px; position: relative; overflow: hidden;">
+                    ${item.thumb_url ? `<img src="${item.thumb_url}" onerror="this.style.display='none';" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.25; filter: blur(20px);" />` : ''}
+                    <div style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+                      ${item.thumb_url ? `<img src="${item.thumb_url}" onerror="this.style.display='none';" style="width: 280px; height: 280px; object-fit: cover; border-radius: var(--radius-md); box-shadow: 0 10px 40px rgba(0,0,0,0.8); margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.2);" />` : `<div style="font-size: 6rem; margin-bottom: 24px; animation: pulseGlow 2s infinite;">🎵</div>`}
+                      <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 24px; word-break: break-all; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,0.9);">${item.filename}</h2>
+                      <audio src="${mediaUrl}" controls autoplay ${store.get('playlist')?.isPlaying ? '' : 'loop'} style="width: 80%; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); border-radius: 30px;"></audio>
+                    </div>
                   </div>
                 ` : `
                   <img src="${mediaUrl}" alt="${item.filename}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
