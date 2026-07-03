@@ -4,8 +4,18 @@ import { api } from '../api/client.js';
 export class TagSidebar {
     constructor(container) {
         this.container = container;
-        this.expandedNodes = new Set(['Person', 'Movie', 'Style']); // Default expanded
-        this.expandedSections = new Set(['actions', 'view', 'sort', 'taxonomy']); // Accordions
+        try {
+            const savedNodes = localStorage.getItem('toxik_expanded_nodes');
+            this.expandedNodes = savedNodes ? new Set(JSON.parse(savedNodes)) : new Set(['Person', 'Movie', 'Style']);
+        } catch (e) {
+            this.expandedNodes = new Set(['Person', 'Movie', 'Style']);
+        }
+        try {
+            const savedSections = localStorage.getItem('toxik_expanded_sections');
+            this.expandedSections = savedSections ? new Set(JSON.parse(savedSections)) : new Set(['actions', 'view', 'sort', 'taxonomy']);
+        } catch (e) {
+            this.expandedSections = new Set(['actions', 'view', 'sort', 'taxonomy']);
+        }
         this.isResizing = false;
         window.addEventListener('mousemove', (e) => {
             if (!this.isResizing) return;
@@ -116,7 +126,7 @@ export class TagSidebar {
     }
 
     render() {
-        const scrollEl = this.container.querySelector('#sidebar-taxonomy-scroll');
+        const scrollEl = this.container.querySelector('#sidebar-main-scroll');
         const scrollTop = scrollEl ? scrollEl.scrollTop : 0;
         const tags = store.get('tags') || [];
         const tree = this.buildTree(tags);
@@ -151,115 +161,118 @@ export class TagSidebar {
         }).join('');
 
         this.container.innerHTML = `
-          <div style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+          <div style="display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative;">
+            <div id="sidebar-main-scroll" style="display: flex; flex-direction: column; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 24px;">
 
-            <!-- Section 1: Actions & Generation -->
-            <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
-              <div class="accordion-header" data-section="actions" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
-                <span>🎮 Actions & Gen</span>
-                <span>${this.expandedSections.has('actions') ? '▼' : '▶'}</span>
-              </div>
-              ${this.expandedSections.has('actions') ? `
-                <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 8px;">
-                  <div style="display: flex; gap: 8px;">
-                    <button class="btn btn-primary" id="btn-gen-t2i" style="flex: 1; height: 36px; font-size: 0.85rem;" title="Text-to-Image Generation">🎨 T2I</button>
-                    <button class="btn btn-primary" id="btn-gen-t2v" style="flex: 1; height: 36px; font-size: 0.85rem; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Text-to-Video Generation">🎬 T2V</button>
-                  </div>
-                  <div style="display: flex; gap: 8px;">
-                    <button class="btn" id="btn-import" title="Import Media" style="flex: 1; height: 36px; font-size: 0.8rem;">📥 Import</button>
-                    <button class="btn" id="btn-reingest-displayed" title="Re-Ingest Displayed Media" style="flex: 1; height: 36px; font-size: 0.8rem;">🔄 Re-Ingest</button>
-                  </div>
-                  <button class="btn" id="btn-copy-selected-bash" title="Copy media paths escaped for Bash (copies selected items, or all displayed if none selected)"
-                          style="width: 100%; height: 36px; font-size: 0.8rem; border-color: rgba(0, 255, 102, 0.4); color: #00ff66; background: rgba(0, 255, 102, 0.05); display: flex; align-items: center; justify-content: center; gap: 6px;">
-                    📋 Copy Paths (Bash) ${store.get('selectedIds').size > 0 ? `<span class="badge" style="background: #00ff66; color: #000;">${store.get('selectedIds').size}</span>` : ''}
-                  </button>
-                  <button class="btn" id="btn-open-tag-cloud" style="width: 100%; height: 36px; font-size: 0.85rem; border-color: rgba(0, 240, 255, 0.3); color: var(--accent-cyan); background: rgba(0, 240, 255, 0.05);" title="View Tag Cloud for displayed media">
-                    ☁ Tag Cloud Modal
-                  </button>
+              <!-- Section 1: Actions & Generation -->
+              <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                <div class="accordion-header" data-section="actions" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                  <span>🎮 Actions & Gen</span>
+                  <span>${this.expandedSections.has('actions') ? '▼' : '▶'}</span>
                 </div>
-              ` : ''}
-            </div>
-
-            <!-- Section 2: View & Display -->
-            <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
-              <div class="accordion-header" data-section="view" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
-                <span>🖥 View & Display</span>
-                <span>${this.expandedSections.has('view') ? '▼' : '▶'}</span>
+                ${this.expandedSections.has('actions') ? `
+                  <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; gap: 8px;">
+                      <button class="btn btn-primary" id="btn-gen-t2i" style="flex: 1; height: 36px; font-size: 0.85rem;" title="Text-to-Image Generation">🎨 T2I</button>
+                      <button class="btn btn-primary" id="btn-gen-t2v" style="flex: 1; height: 36px; font-size: 0.85rem; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Text-to-Video Generation">🎬 T2V</button>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                      <button class="btn" id="btn-import" title="Import Media" style="flex: 1; height: 36px; font-size: 0.8rem;">📥 Import</button>
+                      <button class="btn" id="btn-reingest-displayed" title="Re-Ingest Displayed Media" style="flex: 1; height: 36px; font-size: 0.8rem;">🔄 Re-Ingest</button>
+                    </div>
+                    <button class="btn" id="btn-copy-selected-bash" title="Copy media paths escaped for Bash (copies selected items, or all displayed if none selected)"
+                            style="width: 100%; height: 36px; font-size: 0.8rem; border-color: rgba(0, 255, 102, 0.4); color: #00ff66; background: rgba(0, 255, 102, 0.05); display: flex; align-items: center; justify-content: center; gap: 6px;">
+                      📋 Copy Paths (Bash) ${store.get('selectedIds').size > 0 ? `<span class="badge" style="background: #00ff66; color: #000;">${store.get('selectedIds').size}</span>` : ''}
+                    </button>
+                    <button class="btn" id="btn-open-tag-cloud" style="width: 100%; height: 36px; font-size: 0.85rem; border-color: rgba(0, 240, 255, 0.3); color: var(--accent-cyan); background: rgba(0, 240, 255, 0.05);" title="View Tag Cloud for displayed media">
+                      ☁ Tag Cloud Modal
+                    </button>
+                  </div>
+                ` : ''}
               </div>
-              ${this.expandedSections.has('view') ? `
-                <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">Layout:</span>
-                    <div style="display: flex; background: rgba(0,0,0,0.4); border-radius: var(--radius-full); padding: 2px; border: 1px solid var(--border-color);">
-                      <button class="btn btn-icon view-btn ${viewMode === 'grid' ? 'active' : ''}" data-view="grid" title="Compact Grid ▦" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'grid' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▦</button>
-                      <button class="btn btn-icon view-btn ${viewMode === 'montage' ? 'active' : ''}" data-view="montage" title="Montage / Masonry ▧" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'montage' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▧</button>
-                      <button class="btn btn-icon view-btn ${viewMode === 'viewport' ? 'active' : ''}" data-view="viewport" title="Full Viewport Feed ▣" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'viewport' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▣</button>
+
+              <!-- Section 2: View & Display -->
+              <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                <div class="accordion-header" data-section="view" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                  <span>🖥 View & Display</span>
+                  <span>${this.expandedSections.has('view') ? '▼' : '▶'}</span>
+                </div>
+                ${this.expandedSections.has('view') ? `
+                  <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">Layout:</span>
+                      <div style="display: flex; background: rgba(0,0,0,0.4); border-radius: var(--radius-full); padding: 2px; border: 1px solid var(--border-color);">
+                        <button class="btn btn-icon view-btn ${viewMode === 'grid' ? 'active' : ''}" data-view="grid" title="Compact Grid ▦" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'grid' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▦</button>
+                        <button class="btn btn-icon view-btn ${viewMode === 'montage' ? 'active' : ''}" data-view="montage" title="Montage / Masonry ▧" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'montage' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▧</button>
+                        <button class="btn btn-icon view-btn ${viewMode === 'viewport' ? 'active' : ''}" data-view="viewport" title="Full Viewport Feed ▣" style="width: 30px; height: 30px; border: none; background: ${viewMode === 'viewport' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff;">▣</button>
+                      </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">Type:</span>
+                      <div style="display: flex; background: rgba(0,0,0,0.4); border-radius: var(--radius-full); padding: 2px; border: 1px solid var(--border-color);">
+                        <button class="btn btn-icon type-btn ${mediaType === 'all' ? 'active' : ''}" data-type="all" title="All Media" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'all' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🌟</button>
+                        <button class="btn btn-icon type-btn ${mediaType === 'image' ? 'active' : ''}" data-type="image" title="Images Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'image' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">📷</button>
+                        <button class="btn btn-icon type-btn ${mediaType === 'video' ? 'active' : ''}" data-type="video" title="Videos Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'video' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🎬</button>
+                        <button class="btn btn-icon type-btn ${mediaType === 'audio' ? 'active' : ''}" data-type="audio" title="Audio Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'audio' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🎵</button>
+                      </div>
+                    </div>
+
+                    <div style="display: flex; gap: 6px;">
+                      <button class="btn btn-icon" id="btn-hud-toggle" title="Toggle Overlay HUD" style="flex: 1; height: 32px; font-size: 0.75rem; background: ${store.get('hudVisible', true) !== false ? 'rgba(0, 240, 255, 0.15)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${store.get('hudVisible', true) !== false ? 'var(--accent-cyan)' : 'var(--border-color)'}; color: #fff;">
+                        👁 HUD: ${store.get('hudVisible', true) !== false ? 'On' : 'Off'}
+                      </button>
+                      <button class="btn btn-icon" id="btn-anim-thumbs-toggle" title="Toggle Animated Thumbs" style="flex: 1; height: 32px; font-size: 0.75rem; background: ${store.get('animThumbs', true) !== false ? 'rgba(0, 240, 255, 0.15)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${store.get('animThumbs', true) !== false ? 'var(--accent-cyan)' : 'var(--border-color)'}; color: #fff;">
+                        🎬 Anim: ${store.get('animThumbs', true) !== false ? 'On' : 'Off'}
+                      </button>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 2px;">
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">Multi-tag logic:</span>
+                      <button class="btn" id="btn-multi-mode" title="Toggle Multi-filter Logic" style="height: 28px; font-size: 0.7rem; font-weight: 700; padding: 0 10px; border-color: rgba(0, 240, 255, 0.3);">
+                        ${multiMode}
+                      </button>
                     </div>
                   </div>
+                ` : ''}
+              </div>
 
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">Type:</span>
-                    <div style="display: flex; background: rgba(0,0,0,0.4); border-radius: var(--radius-full); padding: 2px; border: 1px solid var(--border-color);">
-                      <button class="btn btn-icon type-btn ${mediaType === 'all' ? 'active' : ''}" data-type="all" title="All Media" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'all' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🌟</button>
-                      <button class="btn btn-icon type-btn ${mediaType === 'image' ? 'active' : ''}" data-type="image" title="Images Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'image' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">📷</button>
-                      <button class="btn btn-icon type-btn ${mediaType === 'video' ? 'active' : ''}" data-type="video" title="Videos Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'video' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🎬</button>
-                      <button class="btn btn-icon type-btn ${mediaType === 'audio' ? 'active' : ''}" data-type="audio" title="Audio Only" style="width: 30px; height: 30px; border: none; background: ${mediaType === 'audio' ? 'var(--accent-gradient)' : 'transparent'}; color: #fff; font-size: 0.8rem;">🎵</button>
+              <!-- Section 3: Sort & Order -->
+              <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                <div class="accordion-header" data-section="sort" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                  <span>📶 Sort & Order</span>
+                  <span>${this.expandedSections.has('sort') ? '▼' : '▶'}</span>
+                </div>
+                ${this.expandedSections.has('sort') ? `
+                  <div style="padding: 0 16px 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    ${sortButtonsHtml}
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Section 4: Tag Taxonomy -->
+              <div class="sidebar-section" style="flex-shrink: 0; display: flex; flex-direction: column;">
+                <div class="accordion-header" data-section="taxonomy" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; border-bottom: ${this.expandedSections.has('taxonomy') ? '1px solid var(--border-color)' : 'none'};">
+                  <span style="display: flex; align-items: center; gap: 8px;">
+                    <span>🗂 Tag Taxonomy</span>
+                    <button class="btn btn-icon" id="btn-new-tag" title="Create Tag" style="width: 24px; height: 24px; font-size: 0.9rem;">+</button>
+                  </span>
+                  <span>${this.expandedSections.has('taxonomy') ? '▼' : '▶'}</span>
+                </div>
+                ${this.expandedSections.has('taxonomy') ? `
+                  <div style="padding: 12px;">
+                    <div class="tag-tree-item ${isAllActive ? 'active' : ''}" data-tag=""
+                         style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; background: ${isAllActive ? 'rgba(0, 240, 255, 0.15)' : 'transparent'}; border: 1px solid ${isAllActive ? 'var(--accent-cyan)' : 'transparent'}; margin-bottom: 8px; font-weight: 600; min-height: 38px;">
+                      <span>🌟 All Media</span>
+                      <span class="badge" style="background: ${isAllActive ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.08)'}; color: ${isAllActive ? '#000' : 'var(--text-secondary)'};">
+                        ${store.get('totalItems')}
+                      </span>
                     </div>
+                    ${this.renderTree(tree)}
                   </div>
-
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-icon" id="btn-hud-toggle" title="Toggle Overlay HUD" style="flex: 1; height: 32px; font-size: 0.75rem; background: ${store.get('hudVisible', true) !== false ? 'rgba(0, 240, 255, 0.15)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${store.get('hudVisible', true) !== false ? 'var(--accent-cyan)' : 'var(--border-color)'}; color: #fff;">
-                      👁 HUD: ${store.get('hudVisible', true) !== false ? 'On' : 'Off'}
-                    </button>
-                    <button class="btn btn-icon" id="btn-anim-thumbs-toggle" title="Toggle Animated Thumbs" style="flex: 1; height: 32px; font-size: 0.75rem; background: ${store.get('animThumbs', true) !== false ? 'rgba(0, 240, 255, 0.15)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${store.get('animThumbs', true) !== false ? 'var(--accent-cyan)' : 'var(--border-color)'}; color: #fff;">
-                      🎬 Anim: ${store.get('animThumbs', true) !== false ? 'On' : 'Off'}
-                    </button>
-                  </div>
-
-                  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 2px;">
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">Multi-tag logic:</span>
-                    <button class="btn" id="btn-multi-mode" title="Toggle Multi-filter Logic" style="height: 28px; font-size: 0.7rem; font-weight: 700; padding: 0 10px; border-color: rgba(0, 240, 255, 0.3);">
-                      ${multiMode}
-                    </button>
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-
-            <!-- Section 3: Sort & Order -->
-            <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
-              <div class="accordion-header" data-section="sort" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
-                <span>📶 Sort & Order</span>
-                <span>${this.expandedSections.has('sort') ? '▼' : '▶'}</span>
+                ` : ''}
               </div>
-              ${this.expandedSections.has('sort') ? `
-                <div style="padding: 0 16px 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                  ${sortButtonsHtml}
-                </div>
-              ` : ''}
-            </div>
 
-            <!-- Section 4: Tag Taxonomy -->
-            <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-              <div class="accordion-header" data-section="taxonomy" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; border-bottom: ${this.expandedSections.has('taxonomy') ? '1px solid var(--border-color)' : 'none'}; flex-shrink: 0;">
-                <span style="display: flex; align-items: center; gap: 8px;">
-                  <span>🗂 Tag Taxonomy</span>
-                  <button class="btn btn-icon" id="btn-new-tag" title="Create Tag" style="width: 24px; height: 24px; font-size: 0.9rem;">+</button>
-                </span>
-                <span>${this.expandedSections.has('taxonomy') ? '▼' : '▶'}</span>
-              </div>
-              ${this.expandedSections.has('taxonomy') ? `
-                <div id="sidebar-taxonomy-scroll" style="padding: 12px; flex: 1; overflow-y: auto;">
-                  <div class="tag-tree-item ${isAllActive ? 'active' : ''}" data-tag=""
-                       style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; background: ${isAllActive ? 'rgba(0, 240, 255, 0.15)' : 'transparent'}; border: 1px solid ${isAllActive ? 'var(--accent-cyan)' : 'transparent'}; margin-bottom: 8px; font-weight: 600; min-height: 38px;">
-                    <span>🌟 All Media</span>
-                    <span class="badge" style="background: ${isAllActive ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.08)'}; color: ${isAllActive ? '#000' : 'var(--text-secondary)'};">
-                      ${store.get('totalItems')}
-                    </span>
-                  </div>
-                  ${this.renderTree(tree)}
-                </div>
-              ` : ''}
             </div>
 
             <!-- Sidebar Horizontal Resizer Handle -->
@@ -269,7 +282,7 @@ export class TagSidebar {
         `;
 
         this.attachEvents();
-        const newScrollEl = this.container.querySelector('#sidebar-taxonomy-scroll');
+        const newScrollEl = this.container.querySelector('#sidebar-main-scroll');
         if (newScrollEl) newScrollEl.scrollTop = scrollTop;
     }
 
@@ -284,6 +297,9 @@ export class TagSidebar {
                 } else {
                     this.expandedSections.add(sec);
                 }
+                try {
+                    localStorage.setItem('toxik_expanded_sections', JSON.stringify(Array.from(this.expandedSections)));
+                } catch (err) {}
                 this.render();
             });
         });
@@ -331,6 +347,9 @@ export class TagSidebar {
                 } else {
                     this.expandedNodes.add(tag);
                 }
+                try {
+                    localStorage.setItem('toxik_expanded_nodes', JSON.stringify(Array.from(this.expandedNodes)));
+                } catch (err) {}
                 this.render();
             });
         });
