@@ -357,3 +357,17 @@ body.hud-off .detail-play-controls {
   opacity: 1;
 }
 
+/* Enable text selection on errors, logs, inputs, and code blocks */
+.selectable-error,
+[style*="#ff5252"],
+[style*="rgb(255, 82, 82)"],
+[style*="rgba(255,82,82"],
+pre,
+code,
+input,
+textarea {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
+}
+
