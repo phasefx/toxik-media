@@ -6,10 +6,26 @@ export class FilterBar {
         this.container = container;
         this.render();
         store.subscribe((state, changed) => {
-            if (changed && changed.selectedIds) {
+            if (!changed) return;
+            // Update connection indicator in-place instead of full re-render
+            if (changed.isConnected !== undefined) {
+                this.updateConnectionIndicator(state.isConnected !== false);
+            }
+            // Update search input value in-place
+            if (changed.searchQuery !== undefined) {
+                const input = this.container.querySelector('#filter-input');
+                if (input && document.activeElement !== input) {
+                    input.value = changed.searchQuery;
+                }
+            }
+            if (changed.selectedIds) {
                 this.updateDisabledStates();
             }
-            if (changed && Object.keys(changed).every(k => ['workflows', 'jobs', 'page', 'isLoading', 'activeModalItem', 'selectedIds'].includes(k))) {
+            // Skip re-render for high-frequency fields
+            if (Object.keys(changed).every(k =>
+                ['workflows', 'jobs', 'page', 'isLoading', 'activeModalItem',
+                 'selectedIds', 'isConnected', 'backendGitHash', 'searchQuery'].includes(k)
+            )) {
                 return;
             }
             this.render();
@@ -283,6 +299,32 @@ export class FilterBar {
                 btn.style.cursor = hasSelection ? 'pointer' : 'not-allowed';
             }
         });
+    }
+
+    updateConnectionIndicator(online) {
+        const existing = this.container.querySelector('#conn-status-indicator');
+        if (!existing) return;
+        if (online) {
+            existing.innerHTML = `
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 8px #00ff88; display: inline-block;"></span>
+              <span>${(typeof window !== 'undefined' && window.__activeRequestCount > 0) ? window.__activeRequestCount : 'ONLINE'}</span>
+            `;
+            existing.style.background = 'rgba(0, 255, 136, 0.08)';
+            existing.style.border = '1px solid rgba(0, 255, 136, 0.3)';
+            existing.style.color = '#00ff88';
+            existing.style.animation = 'none';
+            existing.title = 'Backend Server: Online & Responsive';
+        } else {
+            existing.innerHTML = `
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #ff4444; box-shadow: 0 0 10px #ff4444; display: inline-block;"></span>
+              <span>OFFLINE</span>
+            `;
+            existing.style.background = 'rgba(255, 68, 68, 0.15)';
+            existing.style.border = '1px solid rgba(255, 68, 68, 0.6)';
+            existing.style.color = '#ff4444';
+            existing.style.animation = 'pulseGlow 1s infinite';
+            existing.title = 'Backend Server: Offline / Unreachable (Click to retry connection)';
+        }
     }
 
     showConfigModal() {

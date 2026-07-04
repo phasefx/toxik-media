@@ -52,6 +52,7 @@ if (typeof window !== 'undefined') {
     if (!window.__toxikFetchWrapped) {
         window.__toxikFetchWrapped = true;
         const origFetch = window.fetch;
+        window.__origFetch = origFetch;
         window.fetch = async function(...args) {
             window.__activeRequestCount = (window.__activeRequestCount || 0) + 1;
             window.__updateOnlineBadge();
@@ -65,8 +66,9 @@ if (typeof window !== 'undefined') {
     }
 }
 
-async function def_fetch(endpoint, options = {}) {
-    if (typeof window !== 'undefined' && window.addAppExpectedRequests) window.addAppExpectedRequests(1);
+async function def_fetch(endpoint, options = {}, meta = {}) {
+    const skipCounting = meta.skipCounting === true;
+    if (!skipCounting && typeof window !== 'undefined' && window.addAppExpectedRequests) window.addAppExpectedRequests(1);
     try {
         const response = await fetch(`${BASE_URL}${endpoint}`, {
             headers: {
@@ -85,13 +87,13 @@ async function def_fetch(endpoint, options = {}) {
         if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('toxik-api-success'));
         return await response.json();
     } catch (error) {
-        if (typeof window !== 'undefined' && (error.name === 'TypeError' || error.message?.toLowerCase().includes('fetch') || error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('failed'))) {
+        if (!skipCounting && typeof window !== 'undefined' && (error.name === 'TypeError' || error.message?.toLowerCase().includes('fetch') || error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('failed'))) {
             window.dispatchEvent(new CustomEvent('toxik-api-error', { detail: { error } }));
         }
         console.error(`API Error on ${endpoint}:`, error);
         throw error;
     } finally {
-        if (typeof window !== 'undefined' && window.removeAppExpectedRequests) window.removeAppExpectedRequests(1);
+        if (!skipCounting && typeof window !== 'undefined' && window.removeAppExpectedRequests) window.removeAppExpectedRequests(1);
     }
 }
 
@@ -262,6 +264,11 @@ export const api = {
     },
 
     async getHealth() {
-        return def_fetch('/api/health');
+        try {
+            const resp = await (window.__origFetch || fetch)(`${BASE_URL}/api/health`);
+            return await resp.json();
+        } catch (e) {
+            throw e;
+        }
     }
 };

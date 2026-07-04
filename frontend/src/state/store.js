@@ -432,7 +432,7 @@ class Store extends EventTarget {
         try {
             const health = await api.getHealth();
             this.setConnectionStatus(true);
-            if (health && health.git_commit) {
+            if (health && health.git_commit && health.git_commit !== this.state.backendGitHash) {
                 this.set({ backendGitHash: health.git_commit });
             }
             return true;
