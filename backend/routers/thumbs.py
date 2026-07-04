@@ -136,19 +136,26 @@ async def serve_thumbnail(filename: str, db: aiosqlite.Connection = Depends(get_
     if thumb_path.exists():
         return FileResponse(thumb_path)
 
+    if filename.endswith("_static.webp"):
+        main_path = settings.thumb_dir / filename.replace("_static.webp", ".webp")
+        if main_path.exists():
+            return FileResponse(main_path)
+
     # On-demand thumbnail generation if missing
     if "." in filename and filename != "placeholder.webp":
+        is_static = filename.endswith("_static.webp")
         media_id = filename.rsplit(".", 1)[0].replace("_static", "")
         try:
             cursor = await db.execute("SELECT filepath, media_type FROM media WHERE id = ?", (media_id,))
             row = await cursor.fetchone()
             if row and os.path.exists(row["filepath"]):
                 logger.info(f"[On-Demand Thumb] Missing thumbnail for {filename}; triggering generation for ID {media_id} ({Path(row['filepath']).name})...")
-                rel_thumb = await generate_thumbnail(row["filepath"], media_id, row["media_type"], db=db)
+                rel_thumb = await generate_thumbnail(row["filepath"], media_id, row["media_type"], db=db, static_only=is_static)
                 if rel_thumb and thumb_path.exists():
                     try:
-                        await db.execute("UPDATE media SET thumb_path = ? WHERE id = ? AND (thumb_path IS NULL OR thumb_path = '')", (rel_thumb, media_id))
-                        await db.commit()
+                        if not is_static:
+                            await db.execute("UPDATE media SET thumb_path = ? WHERE id = ? AND (thumb_path IS NULL OR thumb_path = '')", (rel_thumb, media_id))
+                            await db.commit()
                     except Exception as e:
                         logger.warning(f"Could not update db after on-demand thumb: {e}")
                     return FileResponse(thumb_path)

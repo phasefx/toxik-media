@@ -155,16 +155,19 @@ async def resolve_missing_audio_thumbnails(db: aiosqlite.Connection, media_ids: 
     except Exception as e:
         logger.warning(f"Error in resolve_missing_audio_thumbnails: {e}")
 
-async def generate_thumbnail(filepath: str, media_id: str, media_type: str, db: Optional[aiosqlite.Connection] = None, force: bool = False) -> str:
+async def generate_thumbnail(filepath: str, media_id: str, media_type: str, db: Optional[aiosqlite.Connection] = None, force: bool = False, static_only: bool = False) -> str:
     """
     Generates a thumbnail for an image, video, or audio file.
     Returns the relative path to the thumbnail file (e.g. 'thumbs/{media_id}.webp').
     """
     thumb_filename = f"{media_id}.webp"
     thumb_path = settings.thumb_dir / thumb_filename
+    static_path = settings.thumb_dir / f"{media_id}_static.webp"
     rel_path = f"thumbs/{thumb_filename}"
 
-    if thumb_path.exists() and not force:
+    if static_only and static_path.exists() and not force:
+        return f"thumbs/{media_id}_static.webp"
+    if not static_only and thumb_path.exists() and not force:
         return rel_path
 
     if force and thumb_path.exists():
@@ -174,7 +177,7 @@ async def generate_thumbnail(filepath: str, media_id: str, media_type: str, db: 
             pass
 
     t0 = time.time()
-    logger.info(f"[Thumbnail] Generating {media_type} thumbnail for ID {media_id} ({Path(filepath).name})...")
+    logger.info(f"[Thumbnail] Generating {media_type} thumbnail (static_only={static_only}) for ID {media_id} ({Path(filepath).name})...")
     try:
         await manager.broadcast({
             "type": "thumbnail_start",
@@ -189,8 +192,13 @@ async def generate_thumbnail(filepath: str, media_id: str, media_type: str, db: 
     try:
         if media_type == "image":
             await asyncio.to_thread(_process_image_thumb, filepath, str(thumb_path))
+            if static_path != thumb_path and thumb_path.exists() and not static_path.exists():
+                try:
+                    shutil.copy2(thumb_path, static_path)
+                except Exception:
+                    pass
         elif media_type == "video":
-            await _process_video_thumb(filepath, str(thumb_path))
+            await _process_video_thumb(filepath, str(thumb_path), static_only=static_only)
         elif media_type == "audio":
             res = await resolve_audio_thumbnail(media_id, filepath, db=db, force_rebuild=force)
             if not res:
@@ -200,7 +208,8 @@ async def generate_thumbnail(filepath: str, media_id: str, media_type: str, db: 
             return ""
 
         elapsed = int((time.time() - t0) * 1000)
-        logger.info(f"[Thumbnail] Success: generated {rel_path} in {elapsed}ms")
+        ret_path = f"thumbs/{media_id}_static.webp" if (static_only and static_path.exists()) else rel_path
+        logger.info(f"[Thumbnail] Success: generated {ret_path} in {elapsed}ms")
         try:
             await manager.broadcast({
                 "type": "thumbnail_complete",
@@ -237,29 +246,38 @@ def _process_image_thumb(filepath: str, dest_path: str, max_width: int = 500):
             img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
         img.save(dest_path, "WEBP", quality=85)
 
-async def _process_video_thumb(filepath: str, dest_path: str, max_width: int = 500):
+async def _process_video_thumb(filepath: str, dest_path: str, max_width: int = 500, static_only: bool = False):
     dest_p = Path(dest_path)
     static_dest = dest_p.with_name(f"{dest_p.stem}_static{dest_p.suffix}")
 
     # 1. Extract static 1-frame poster to <id>_static.webp
-    cmd_static = [
-        "ffmpeg", "-y",
-        "-ss", "00:00:00.5",
-        "-i", filepath,
-        "-vframes", "1",
-        "-vf", f"scale={max_width}:-1",
-        "-c:v", "libwebp",
-        "-q:v", "80",
-        str(static_dest)
-    ]
-    process = await asyncio.create_subprocess_exec(*cmd_static, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    await process.communicate()
-    if process.returncode != 0 or not static_dest.exists():
-        cmd_static_fb = [
-            "ffmpeg", "-y", "-i", filepath, "-vframes", "1", "-vf", f"scale={max_width}:-1", "-c:v", "libwebp", "-q:v", "80", str(static_dest)
+    if not static_dest.exists() or static_only:
+        cmd_static = [
+            "ffmpeg", "-y",
+            "-ss", "00:00:00.5",
+            "-i", filepath,
+            "-vframes", "1",
+            "-vf", f"scale={max_width}:-1",
+            "-c:v", "libwebp",
+            "-q:v", "80",
+            str(static_dest)
         ]
-        proc_fb = await asyncio.create_subprocess_exec(*cmd_static_fb, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        await proc_fb.communicate()
+        process = await asyncio.create_subprocess_exec(*cmd_static, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        if process.returncode != 0 or not static_dest.exists():
+            cmd_static_fb = [
+                "ffmpeg", "-y", "-i", filepath, "-vframes", "1", "-vf", f"scale={max_width}:-1", "-c:v", "libwebp", "-q:v", "80", str(static_dest)
+            ]
+            proc_fb = await asyncio.create_subprocess_exec(*cmd_static_fb, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            await proc_fb.communicate()
+
+    if static_only:
+        if static_dest != dest_p and static_dest.exists() and not dest_p.exists():
+            try:
+                shutil.copy2(static_dest, dest_p)
+            except Exception:
+                pass
+        return
 
     # 2. Generate animated WebP clip (2.5s at 8fps) as the primary thumbnail (<id>.webp)
     cmd_anim = [

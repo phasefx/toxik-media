@@ -297,6 +297,78 @@ class App {
         } else {
             this.sentinel.innerHTML = '';
         }
+
+        this.initAsyncThumbnails(state);
+    }
+
+    initAsyncThumbnails(state) {
+        // 1. Asynchronous Viewport-Aware Debounced Upgrade for animated WebP thumbnails
+        if (this.thumbObserver) {
+            this.thumbObserver.disconnect();
+        }
+        this.thumbObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const img = entry.target;
+                if (entry.isIntersecting) {
+                    // Debounce upgrade by 250ms to protect against fast scrolling network chokes
+                    if (!img._animTimer) {
+                        img._animTimer = setTimeout(() => {
+                            const animSrc = img.getAttribute('data-anim-src');
+                            if (animSrc) {
+                                const loader = new Image();
+                                loader.onload = () => {
+                                    img.src = animSrc;
+                                    img.removeAttribute('data-anim-src');
+                                };
+                                loader.src = animSrc;
+                            }
+                            this.thumbObserver.unobserve(img);
+                        }, 250);
+                    }
+                } else {
+                    // Cancel upgrade if item scrolled out of viewport during debounce window
+                    if (img._animTimer) {
+                        clearTimeout(img._animTimer);
+                        img._animTimer = null;
+                    }
+                }
+            });
+        }, { rootMargin: '100px 0px' });
+
+        this.galleryGrid.querySelectorAll('img[data-anim-src]').forEach(img => {
+            this.thumbObserver.observe(img);
+        });
+
+        // 2. Background Next-Page Pre-fetching during network/CPU idle
+        if (state.hasMore && !state.isLoading && !this._isPrefetching) {
+            if (this._prefetchTimer) clearTimeout(this._prefetchTimer);
+            this._prefetchTimer = setTimeout(() => {
+                this._isPrefetching = true;
+                const nextPage = (state.page || 1) + 1;
+                api.browse({
+                    filter: store.getEffectiveFilter(),
+                    view: state.viewMode || 'grid',
+                    page: nextPage,
+                    limit: state.limit || 50,
+                    threshold: state.threshold || 0.75,
+                    mediaType: state.mediaType || '',
+                    sortBy: state.sortChain ? state.sortChain.map(s => s.id).join(',') : (state.sortBy || 'creation_date'),
+                    sortDir: state.sortChain ? state.sortChain.map(s => s.dir).join(',') : (state.sortDir || 'desc')
+                }).then(res => {
+                    if (res && res.results) {
+                        res.results.forEach(r => {
+                            if (r.type === 'item' && r.media && r.media.id) {
+                                const staticUrl = `/thumbs/${r.media.id}_static.webp`;
+                                const preloadImg = new Image();
+                                preloadImg.src = staticUrl;
+                            }
+                        });
+                    }
+                }).catch(() => {}).finally(() => {
+                    this._isPrefetching = false;
+                });
+            }, 1000);
+        }
     }
 
     setupViewportVideoObserver() {

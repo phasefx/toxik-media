@@ -88,7 +88,7 @@ export function renderMediaCard(item, viewMode = 'grid') {
         <!-- Media Preview -->
         ${isVideo ? `
           <div class="video-preview-container ${imgClass}" style="position: relative; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center;">
-            <img class="thumb-preview" src="${animThumbs ? thumbUrl : thumbUrl.replace('.webp', '_static.webp')}" alt="${item.filename}" loading="lazy"
+            <img class="thumb-preview" src="${thumbUrl.replace('.webp', '_static.webp')}" ${animThumbs ? `data-anim-src="${thumbUrl}"` : ''} alt="${item.filename}" loading="lazy"
                  onerror="if(this.src.includes('_static.webp')){this.src='${thumbUrl}';}else{this.onerror=null; this.src='/thumbs/${item.id}.webp';}"
                  style="width: 100%; height: 100%; object-fit: cover; display: block;" />
             <video class="video-preview" src="/api/media/${item.id}/file" muted loop playsinline preload="none"
