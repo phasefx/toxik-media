@@ -200,6 +200,28 @@ export class TagSidebar {
           <div style="display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative;">
             <div id="sidebar-main-scroll" style="display: flex; flex-direction: column; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 24px;">
 
+              <!-- Branding / Version -->
+              <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0; text-align: center; padding: 14px 16px 10px;">
+                <div style="font-size: 1.4rem; font-weight: 800; letter-spacing: 1px;">
+                  Toxik <span style="font-size: 1.2rem;">🧪</span>
+                </div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+                  ${(() => {
+                    const bh = store.get('backendGitHash') || '—';
+                    const fh = store.get('frontendGitHash') || '—';
+                    if (bh && fh && bh !== fh) {
+                      return `Backend TIP: ${bh} &nbsp;·&nbsp; Frontend TIP: ${fh}`;
+                    }
+                    return `TIP: ${bh || fh}`;
+                  })()}
+                </div>
+                <div style="margin-top: 6px;">
+                  <a href="https://github.com/phasefx/toxik-media" target="_blank" rel="noopener noreferrer" style="font-size: 0.7rem; color: var(--text-muted); text-decoration: none; opacity: 0.6;">
+                    github.com/phasefx/toxik-media
+                  </a>
+                </div>
+              </div>
+
               <!-- Section 1: Actions & Generation -->
               <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
                 <div class="accordion-header" data-section="actions" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">

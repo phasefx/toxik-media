@@ -1,4 +1,5 @@
 import logging
+import subprocess
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,14 @@ from backend.routers import media, tags, browse, generate, websocket, thumbs, ca
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("toxik")
+
+try:
+    GIT_COMMIT = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        capture_output=True, text=True, check=True, timeout=5
+    ).stdout.strip()
+except Exception:
+    GIT_COMMIT = "unknown"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,7 +56,7 @@ app.include_router(xr.router)
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "app": settings.app_name}
+    return {"status": "ok", "app": settings.app_name, "git_commit": GIT_COMMIT}
 
 if __name__ == "__main__":
     import argparse

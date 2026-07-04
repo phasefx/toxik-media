@@ -44,7 +44,9 @@ class Store extends EventTarget {
             catalogs: [],
             activeCatalog: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_active_catalog')) || '',
             isConnected: true,
-            orphanMode: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_orphan_mode')) || 'exclude'
+            orphanMode: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_orphan_mode')) || 'exclude',
+            backendGitHash: '',
+            frontendGitHash: __GIT_HASH__
         };
         if (typeof window !== 'undefined') {
             window.addEventListener('toxik-api-success', () => this.setConnectionStatus(true));
@@ -419,8 +421,11 @@ class Store extends EventTarget {
 
     async checkConnection() {
         try {
-            await api.getHealth();
+            const health = await api.getHealth();
             this.setConnectionStatus(true);
+            if (health && health.git_commit) {
+                this.set({ backendGitHash: health.git_commit });
+            }
             return true;
         } catch (e) {
             this.setConnectionStatus(false);

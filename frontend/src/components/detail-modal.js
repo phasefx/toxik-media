@@ -233,6 +233,7 @@ export class DetailModal {
         const isGame = item.media_type === 'game';
         const isFiction = item.media_type === 'fiction';
         const isPlayable = !isDoc && !isGame && !isFiction;
+        const isImageOrVideo = item.media_type === 'image' || item.media_type === 'video';
         const stretchFit = store.get('mediaStretchFit') ? 'cover' : 'contain';
 
         this.container.innerHTML = `
