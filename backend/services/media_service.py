@@ -28,6 +28,36 @@ DOC_EXTS = {
     ".ini", ".php", ".rb", ".swift", ".kt", ".lua", ".cfg",
     ".conf", ".env", ".log"
 }
+ROM_EXTS = {
+    ".nes", ".fds", ".unf",
+    ".smc", ".sfc", ".fig",
+    ".gb",  ".gbc", ".gba",
+    ".nds", ".3ds",
+    ".n64", ".z64", ".v64",
+    ".gen", ".md", ".smd",
+    ".pce", ".sgx",
+    ".sms", ".gg",
+    ".ws",  ".wsc",
+    ".a26", ".a78",
+    ".lnx",
+    ".j64",
+    ".ngp", ".ngc",
+    ".neo",
+    ".col", ".cv",
+    ".int",
+    ".vb",
+    ".psx", ".ps1", ".p64",
+    ".iso", ".cue", ".bin", ".chd",
+    ".m3u",
+}
+IF_EXTS = {
+    ".z1", ".z2", ".z3", ".z4", ".z5", ".z6", ".z7", ".z8",
+    ".zblorb", ".blorb",
+    ".ulx",
+    ".gam", ".t3",
+    ".ink",
+}
+INK_JSON_SUFFIX = ".ink.json"
 
 def compute_file_hash(filepath: str) -> str:
     hasher = hashlib.sha256()
@@ -228,6 +258,7 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
             continue
 
         ext = Path(filepath).suffix.lower()
+        low_path = filepath.lower()
         if ext in IMAGE_EXTS:
             media_type = "image"
             mime_type = f"image/{ext[1:]}"
@@ -237,6 +268,12 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
         elif ext in AUDIO_EXTS:
             media_type = "audio"
             mime_type = f"audio/{ext[1:]}"
+        elif low_path.endswith(INK_JSON_SUFFIX) or ext in IF_EXTS:
+            media_type = "fiction"
+            mime_type = "application/x-fiction"
+        elif ext in ROM_EXTS:
+            media_type = "game"
+            mime_type = "application/x-rom"
         else:
             media_type = "doc"
             if ext == ".md":

@@ -230,6 +230,9 @@ export class DetailModal {
         }).join('');
 
         const isDoc = item.media_type === 'doc';
+        const isGame = item.media_type === 'game';
+        const isFiction = item.media_type === 'fiction';
+        const isPlayable = !isDoc && !isGame && !isFiction;
         const stretchFit = store.get('mediaStretchFit') ? 'cover' : 'contain';
 
         this.container.innerHTML = `
@@ -304,6 +307,7 @@ export class DetailModal {
                 </div>
 
                 <!-- Section 1: Playlist Controls -->
+                ${isPlayable ? `
                 <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0; background: rgba(0, 240, 255, 0.03);">
                   <div class="accordion-header" data-section="playlist" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--accent-cyan); text-transform: uppercase;">
                     <span>🎵 Play Controls</span>
@@ -342,6 +346,7 @@ export class DetailModal {
                     </div>
                   ` : ''}
                 </div>
+                ` : ''}
 
                 <!-- Section 2: Tags Section -->
                 <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
@@ -379,6 +384,7 @@ export class DetailModal {
                   ` : ''}
                 </div>
 
+                ${isPlayable ? `
                 <!-- Section 4: Actions -->
                 <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
                   <div class="accordion-header" data-section="actions" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
@@ -415,8 +421,10 @@ export class DetailModal {
                     </div>
                   ` : ''}
                 </div>
+                ` : ''}
 
                 <!-- Section 5: Transcode -->
+                ${isPlayable ? `
                 <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
                   <div class="accordion-header" data-section="transcode" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
                     <span>🔄 Transcode</span>
@@ -440,7 +448,9 @@ export class DetailModal {
                     </div>
                   ` : ''}
                 </div>
+                ` : ''}
 
+                ${isGame ? `
                 <!-- Section 6: Emulation -->
                 <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
                   <div class="accordion-header" data-section="emu" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
@@ -455,7 +465,9 @@ export class DetailModal {
                     </div>
                   ` : ''}
                 </div>
+                ` : ''}
 
+                ${isFiction ? `
                 <!-- Section 7: Interactive Fiction -->
                 <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
                   <div class="accordion-header" data-section="if" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
@@ -470,8 +482,9 @@ export class DetailModal {
                     </div>
                   ` : ''}
                 </div>
+                ` : ''}
 
-                <!-- Section 8: VR / Stereogram -->
+                ${isImageOrVideo ? `
                 <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
                   <div class="accordion-header" data-section="xr" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
                     <span>🥽 VR / Stereogram</span>
@@ -493,6 +506,7 @@ export class DetailModal {
                     </div>
                   ` : ''}
                 </div>
+                ` : ''}
 
               </div>
             </div>
