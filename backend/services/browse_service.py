@@ -92,14 +92,21 @@ async def browse_media(
             # Threshold not met, show items directly
             direct_items.extend(group_mids)
 
-    # Sort aggregates by label alphabetically
-    results.sort(key=lambda x: x.label.lower() if isinstance(x, AggregateResult) else "")
+    # Sort aggregates
+    sort_keys = [k.strip() for k in sort_by.split(",") if k.strip()]
+    sort_dirs = [d.strip() for d in sort_dir.split(",") if d.strip()]
+    while len(sort_dirs) < len(sort_keys):
+        sort_dirs.append(sort_dirs[-1] if sort_dirs else "desc")
 
-    has_aggregates = any(isinstance(r, AggregateResult) for r in results)
+    for k, d in reversed(list(zip(sort_keys, sort_dirs))):
+        rev = (d.lower() == "desc")
+        if k in ("tag_count", "file_size", "pixel_count", "duration"):
+            results.sort(key=lambda x: x.count if isinstance(x, AggregateResult) else 0, reverse=rev)
+        else:
+            results.sort(key=lambda x: x.label.lower() if isinstance(x, AggregateResult) else "", reverse=rev)
 
-    # Process direct items ONLY when no Tag Groups are being displayed in this set
-    if not has_aggregates:
-        # Fetch full media items for direct_items in bulk
+    # Always process direct items so non-aggregated entries are displayed alongside tag groups
+    if direct_items:
         from backend.services.media_service import get_media_items_bulk
         direct_media_items = await get_media_items_bulk(db, direct_items, media_all_tags)
 
@@ -109,11 +116,6 @@ async def browse_media(
                 return ""
             best_tag = max(item.tags, key=lambda t: (t.count('.'), len(t), t))
             return best_tag.lower()
-
-        sort_keys = [k.strip() for k in sort_by.split(",") if k.strip()]
-        sort_dirs = [d.strip() for d in sort_dir.split(",") if d.strip()]
-        while len(sort_dirs) < len(sort_keys):
-            sort_dirs.append(sort_dirs[-1] if sort_dirs else "desc")
 
         for k, d in reversed(list(zip(sort_keys, sort_dirs))):
             reverse = (d.lower() == "desc")
@@ -131,6 +133,8 @@ async def browse_media(
                 direct_media_items.sort(key=lambda x: len(x.tags) if x.tags else 0, reverse=reverse)
             elif k == "tag_abetical":
                 direct_media_items.sort(key=lambda x: get_tag_abetical_key(x), reverse=reverse)
+            elif k == "file_extension":
+                direct_media_items.sort(key=lambda x: (x.filename.rsplit('.', 1)[-1].lower() if '.' in (x.filename or '') else ''), reverse=reverse)
             elif k == "random":
                 import random
                 random.shuffle(direct_media_items)

@@ -191,10 +191,17 @@ class Store extends EventTarget {
 
         for (let i = chain.length - 1; i >= 0; i--) {
             const { id: sortBy, dir: sortDir } = chain[i];
+            const mul = sortDir === 'asc' ? 1 : -1;
             if (sortBy === 'random') {
+                aggs.sort(() => Math.random() - 0.5);
                 items.sort(() => Math.random() - 0.5);
             } else {
-                const mul = sortDir === 'asc' ? 1 : -1;
+                aggs.sort((a, b) => {
+                    if (sortBy === 'tag_count' || sortBy === 'file_size' || sortBy === 'pixel_count' || sortBy === 'duration') {
+                        return mul * ((a.count || 0) - (b.count || 0));
+                    }
+                    return mul * (a.label || '').localeCompare(b.label || '');
+                });
                 items.sort((a, b) => {
                     const ma = a.media || {};
                     const mb = b.media || {};
@@ -206,6 +213,11 @@ class Store extends EventTarget {
                     if (sortBy === 'duration') return mul * ((ma.duration_ms || 0) - (mb.duration_ms || 0));
                     if (sortBy === 'tag_count') return mul * (((ma.tags || []).length) - ((mb.tags || []).length));
                     if (sortBy === 'tag_abetical') return mul * getTagAbeticalKey(ma).localeCompare(getTagAbeticalKey(mb));
+                    if (sortBy === 'file_extension') {
+                        const extA = ma.filename && ma.filename.includes('.') ? ma.filename.split('.').pop().toLowerCase() : '';
+                        const extB = mb.filename && mb.filename.includes('.') ? mb.filename.split('.').pop().toLowerCase() : '';
+                        return mul * extA.localeCompare(extB);
+                    }
                     return 0;
                 });
             }

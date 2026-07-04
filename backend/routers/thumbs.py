@@ -155,14 +155,42 @@ async def serve_thumbnail(filename: str, db: aiosqlite.Connection = Depends(get_
         except Exception as e:
             logger.error(f"On-demand thumbnail generation failed for {filename}: {e}")
 
-    # Fallback placeholder
-    placeholder = settings.thumb_dir / "placeholder.webp"
-    if placeholder.exists():
-        return FileResponse(placeholder)
+    # Fallback placeholder SVG with filename
+    display_title = "No Preview"
+    icon_char = "📄"
+    if "." in filename and filename != "placeholder.webp":
+        media_id = filename.rsplit(".", 1)[0].replace("_static", "")
+        try:
+            cursor = await db.execute("SELECT filepath, media_type FROM media WHERE id = ?", (media_id,))
+            row = await cursor.fetchone()
+            if row and row["filepath"]:
+                display_title = Path(row["filepath"]).name
+                if row["media_type"] == "video": icon_char = "🎬"
+                elif row["media_type"] == "audio": icon_char = "🎵"
+                elif row["media_type"] == "image": icon_char = "🖼️"
+        except Exception:
+            pass
 
-    placeholder_svg = """<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" fill="#141720">
+    import textwrap
+    lines = textwrap.wrap(display_title, width=22)
+    if len(lines) > 3:
+        lines = lines[:3]
+        lines[2] = lines[2][:19] + "..."
+    if not lines:
+        lines = ["No Preview"]
+
+    text_elements = []
+    start_y = 175 if len(lines) > 1 else 185
+    for i, line in enumerate(lines):
+        y = start_y + i * 22
+        line_esc = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        text_elements.append(f'<text x="50%" y="{y}" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="600" fill="#e0e6ff">{line_esc}</text>')
+    text_svg = "\n      ".join(text_elements)
+
+    placeholder_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" fill="#141720">
       <rect width="300" height="300" fill="#141720"/>
-      <path d="M150 110 C130 110 115 125 115 145 C115 165 130 180 150 180 C170 180 185 165 185 145 C185 125 170 110 150 110 Z" fill="#2a2f42"/>
-      <text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#6c7293">No Preview</text>
+      <path d="M150 90 C130 90 115 105 115 125 C115 145 130 160 150 160 C170 160 185 145 185 125 C185 105 170 90 150 90 Z" fill="#2a2f42"/>
+      <text x="50%" y="130" dominant-baseline="middle" text-anchor="middle" font-size="32">{icon_char}</text>
+      {text_svg}
     </svg>"""
     return Response(content=placeholder_svg, media_type="image/svg+xml")

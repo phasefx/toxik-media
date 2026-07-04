@@ -246,13 +246,13 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
       - media_all_tags: dict mapping media_id -> list of all full_tag strings for that media
       - group_parent: dict mapping next_segment -> matching inclusion pattern that produced it
     """
-    valid_media_ids = None
+    valid_media_map = {}
     if media_type and media_type != "all":
         types_list = [t.strip() for t in media_type.split(",") if t.strip()]
         included_types = [t for t in types_list if not t.startswith("-")]
         excluded_types = [t[1:] for t in types_list if t.startswith("-")]
 
-        query = "SELECT id FROM media WHERE 1=1"
+        query = "SELECT id, filename, media_type FROM media WHERE 1=1"
         params = []
         if included_types:
             placeholders = ",".join("?" * len(included_types))
@@ -265,11 +265,13 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
 
         type_cursor = await db.execute(query, params)
         type_rows = await type_cursor.fetchall()
-        valid_media_ids = {r["id"] for r in type_rows}
+        valid_media_map = {r["id"]: (r["filename"], r["media_type"]) for r in type_rows}
     else:
-        all_media_cursor = await db.execute("SELECT id FROM media")
+        all_media_cursor = await db.execute("SELECT id, filename, media_type FROM media")
         all_rows = await all_media_cursor.fetchall()
-        valid_media_ids = {r["id"] for r in all_rows}
+        valid_media_map = {r["id"]: (r["filename"], r["media_type"]) for r in all_rows}
+
+    valid_media_ids = set(valid_media_map.keys())
 
     cursor = await db.execute("""
         SELECT mt.media_id, t.full_tag
@@ -278,7 +280,12 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
     """)
     rows = await cursor.fetchall()
 
-    media_all_tags: Dict[str, List[str]] = {mid: [] for mid in valid_media_ids}
+    media_all_tags: Dict[str, List[str]] = {}
+    for mid, (fname, mtype) in valid_media_map.items():
+        ext_tag = f"ext:{fname.rsplit('.', 1)[-1].lower()}" if fname and "." in fname else "ext:none"
+        type_tag = f"type:{mtype}" if mtype else "type:unknown"
+        media_all_tags[mid] = [type_tag, ext_tag]
+
     for row in rows:
         mid = row["media_id"]
         if mid not in media_all_tags:

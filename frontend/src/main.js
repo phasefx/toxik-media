@@ -147,52 +147,72 @@ class App {
         }
 
         // Render based on View Mode
+        const aggs = results.filter(r => r.type === 'aggregate');
+        const items = results.filter(r => r.type === 'item');
+        const hasBoth = aggs.length > 0 && items.length > 0;
+
+        const dividerHtml = `
+          <div class="results-divider" style="width: 100%; grid-column: 1 / -1; margin: 36px 0 24px 0; border-top: 2px dashed rgba(0, 240, 255, 0.35); display: flex; align-items: center; justify-content: center; position: relative;">
+            <span style="background: var(--bg-primary, #0f111a); padding: 2px 18px; color: var(--accent-cyan, #00f0ff); font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; position: absolute; top: -13px; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: var(--radius-full, 9999px); box-shadow: 0 0 12px rgba(0, 240, 255, 0.15);">Media Items (${items.length})</span>
+          </div>
+        `;
+
         if (viewMode === 'grid' || viewMode === 'list') {
             this.galleryGrid.className = `view-${viewMode}`;
-            this.galleryGrid.innerHTML = results.map(r => {
-                if (r.type === 'aggregate') return renderAggregateCard(r, viewMode);
-                return renderMediaCard(r.media, viewMode);
-            }).join('');
+            if (hasBoth) {
+                this.galleryGrid.innerHTML = aggs.map(r => renderAggregateCard(r, viewMode)).join('') + dividerHtml + items.map(r => renderMediaCard(r.media, viewMode)).join('');
+            } else {
+                this.galleryGrid.innerHTML = results.map(r => {
+                    if (r.type === 'aggregate') return renderAggregateCard(r, viewMode);
+                    return renderMediaCard(r.media, viewMode);
+                }).join('');
+            }
         } else if (viewMode === 'montage') {
             this.galleryGrid.className = 'view-montage';
-            // JS Column Packing (per locked decision #1 / §6.1 browser compatibility)
-            // Determine responsive number of columns based on viewport width
             const containerWidth = this.galleryGrid.clientWidth || window.innerWidth - 300;
             const numCols = Math.max(2, Math.floor(containerWidth / 280));
-            const cols = Array.from({ length: numCols }, () => []);
-            const colHeights = Array.from({ length: numCols }, () => 0);
 
-            for (const r of results) {
-                // Find shortest column
-                let minColIdx = 0;
-                let minHeight = colHeights[0];
-                for (let i = 1; i < numCols; i++) {
-                    if (colHeights[i] < minHeight) {
-                        minHeight = colHeights[i];
-                        minColIdx = i;
+            const packCols = (subset) => {
+                const cols = Array.from({ length: numCols }, () => []);
+                const colHeights = Array.from({ length: numCols }, () => 0);
+                for (const r of subset) {
+                    let minColIdx = 0;
+                    let minHeight = colHeights[0];
+                    for (let i = 1; i < numCols; i++) {
+                        if (colHeights[i] < minHeight) {
+                            minHeight = colHeights[i];
+                            minColIdx = i;
+                        }
                     }
+                    cols[minColIdx].push(r);
+                    let aspect = 1.0;
+                    if (r.type === 'item' && r.media.width && r.media.height) {
+                        aspect = r.media.height / r.media.width;
+                    }
+                    colHeights[minColIdx] += (280 * aspect) + 16;
                 }
+                return cols.map(colItems => `
+                  <div class="montage-col">
+                    ${colItems.map(r => {
+                        if (r.type === 'aggregate') return renderAggregateCard(r, 'montage');
+                        return renderMediaCard(r.media, 'montage');
+                    }).join('')}
+                  </div>
+                `).join('');
+            };
 
-                cols[minColIdx].push(r);
-                // Estimate height contribution based on aspect ratio
-                let aspect = 1.0;
-                if (r.type === 'item' && r.media.width && r.media.height) {
-                    aspect = r.media.height / r.media.width;
-                }
-                colHeights[minColIdx] += (280 * aspect) + 16;
+            if (hasBoth) {
+                this.galleryGrid.innerHTML = `
+                  <div class="view-montage" style="display: flex; gap: var(--grid-gap); width: 100%;">${packCols(aggs)}</div>
+                  ${dividerHtml}
+                  <div class="view-montage" style="display: flex; gap: var(--grid-gap); width: 100%;">${packCols(items)}</div>
+                `;
+            } else {
+                this.galleryGrid.innerHTML = packCols(results);
             }
-
-            this.galleryGrid.innerHTML = cols.map(colItems => `
-              <div class="montage-col">
-                ${colItems.map(r => {
-                    if (r.type === 'aggregate') return renderAggregateCard(r, 'montage');
-                    return renderMediaCard(r.media, 'montage');
-                }).join('')}
-              </div>
-            `).join('');
         } else if (viewMode === 'viewport') {
             this.galleryGrid.className = 'view-viewport';
-            this.galleryGrid.innerHTML = results.map(r => {
+            const renderViewportItem = (r) => {
                 if (r.type === 'aggregate') return renderAggregateCard(r, 'grid');
                 const item = r.media;
                 const isVideo = item.media_type === 'video';
@@ -228,7 +248,17 @@ class App {
                     </div>
                   </div>
                 `;
-            }).join('');
+            };
+
+            if (hasBoth) {
+                this.galleryGrid.innerHTML = `
+                  <div class="view-grid" style="display: grid; gap: var(--grid-gap); width: 100%;">${aggs.map(renderViewportItem).join('')}</div>
+                  ${dividerHtml}
+                  ${items.map(renderViewportItem).join('')}
+                `;
+            } else {
+                this.galleryGrid.innerHTML = results.map(renderViewportItem).join('');
+            }
         }
 
         // Attach event listeners to cards

@@ -172,6 +172,7 @@ export class TagSidebar {
         // Sort Options
         const sortOptions = [
             { id: 'asciibetical', label: 'Asciibetical' },
+            { id: 'file_extension', label: 'File Extension' },
             { id: 'tag_abetical', label: 'Tag-abetical' },
             { id: 'random', label: 'Random' },
             { id: 'creation_date', label: 'Creation Date' },
@@ -340,7 +341,7 @@ export class TagSidebar {
         this.container.querySelectorAll('.sort-radio-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const sortId = btn.getAttribute('data-sort');
-                const defaultDir = (sortId === 'asciibetical' || sortId === 'tag_abetical') ? 'asc' : 'desc';
+                const defaultDir = (sortId === 'asciibetical' || sortId === 'tag_abetical' || sortId === 'file_extension') ? 'asc' : 'desc';
                 let chain = store.get('sortChain') || [{ id: store.get('sortBy') || 'creation_date', dir: store.get('sortDir') || 'desc' }];
                 const idx = chain.findIndex(s => s.id === sortId);
 

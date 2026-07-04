@@ -79,7 +79,7 @@ export function renderMediaCard(item, viewMode = 'grid') {
         ${isVideo ? `
           <div class="video-preview-container ${imgClass}" style="position: relative; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center;">
             <img class="thumb-preview" src="${animThumbs ? thumbUrl : thumbUrl.replace('.webp', '_static.webp')}" alt="${item.filename}" loading="lazy"
-                 onerror="if(this.src.includes('_static.webp')){this.src='${thumbUrl}';}else{console.warn('[Toxik Thumb] Failed:', this.src); this.onerror=null; this.src='/thumbs/placeholder.webp';}"
+                 onerror="if(this.src.includes('_static.webp')){this.src='${thumbUrl}';}else{this.onerror=null; this.src='/thumbs/placeholder.webp';}"
                  style="width: 100%; height: 100%; object-fit: cover; display: block;" />
             <video class="video-preview" src="/api/media/${item.id}/file" muted loop playsinline preload="none"
                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; background: #000;"></video>
@@ -94,8 +94,16 @@ export function renderMediaCard(item, viewMode = 'grid') {
             <audio src="/api/media/${item.id}/file" preload="none" style="display: none;"></audio>
           </div>
         ` : `
-          <img class="${imgClass}" src="${thumbUrl}" alt="${item.filename}" loading="lazy"
-               onerror="this.onerror=null; this.src='/thumbs/placeholder.webp';" />
+          <div class="thumb-preview-wrapper ${imgClass}" style="position: relative; overflow: hidden; background: #141720; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 160px;">
+            <img class="${imgClass}" src="${thumbUrl}" alt="${item.filename}" loading="lazy"
+                 style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+            <div class="no-preview-overlay" style="display: none; position: absolute; inset: 0; z-index: 2; flex-direction: column; align-items: center; justify-content: center; padding: 12px; color: #fff; text-align: center; background: linear-gradient(135deg, #141720 0%, #1f2333 100%); width: 100%; height: 100%;">
+              <div style="font-size: 2.8rem; margin-bottom: 8px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));">${item.media_type === 'doc' ? '📄' : item.media_type === 'video' ? '🎬' : '🖼️'}</div>
+              <div style="font-size: 0.75rem; font-weight: 600; color: #8e95b5; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">No Preview</div>
+              <div style="font-size: 0.85rem; font-weight: 700; color: #fff; word-break: break-all; max-width: 90%; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">${item.filename}</div>
+            </div>
+          </div>
         `}
 
         <!-- Selection Checkbox / Indicator -->

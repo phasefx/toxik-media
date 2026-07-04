@@ -36,10 +36,21 @@ export class TagCloudModal {
         const tagCounts = new Map();
         const results = store.get('results') || [];
         results.forEach(r => {
-            if (r.type === 'item' && r.media && r.media.tags) {
-                r.media.tags.forEach(t => {
-                    tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
-                });
+            if (r.type === 'item' && r.media) {
+                const m = r.media;
+                if (m.tags) {
+                    m.tags.forEach(t => {
+                        tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+                    });
+                }
+                if (m.media_type) {
+                    const typeTag = `type:${m.media_type}`;
+                    tagCounts.set(typeTag, (tagCounts.get(typeTag) || 0) + 1);
+                }
+                if (m.filename && m.filename.includes('.')) {
+                    const extTag = `ext:${m.filename.split('.').pop().toLowerCase()}`;
+                    tagCounts.set(extTag, (tagCounts.get(extTag) || 0) + 1);
+                }
             }
         });
 
@@ -76,22 +87,34 @@ export class TagCloudModal {
                 const color = colors[idx % colors.length];
                 const bg = color + '1a'; // 10% opacity
 
-                const segments = tagStr.split('.');
-                let revealedCount = Math.min(2, segments.length);
-                try {
-                    const saved = localStorage.getItem('toxik_tag_cloud_seg_' + tagStr);
-                    if (saved !== null) {
-                        revealedCount = Math.min(segments.length, Math.max(1, parseInt(saved, 10) || revealedCount));
+                let displayText = tagStr;
+                let controlsHtml = '';
+                if (tagStr.startsWith('type:')) {
+                    const mType = tagStr.substring(5);
+                    const icon = mType === 'video' ? '🎬' : mType === 'audio' ? '🎵' : mType === 'doc' ? '📄' : '🖼️';
+                    displayText = `${icon} ${mType}`;
+                } else if (tagStr.startsWith('ext:')) {
+                    const ext = tagStr.substring(4);
+                    displayText = `📦 .${ext}`;
+                } else {
+                    const segments = tagStr.split('.');
+                    let revealedCount = Math.min(2, segments.length);
+                    try {
+                        const saved = localStorage.getItem('toxik_tag_cloud_seg_' + tagStr);
+                        if (saved !== null) {
+                            revealedCount = Math.min(segments.length, Math.max(1, parseInt(saved, 10) || revealedCount));
+                        }
+                    } catch (e) {}
+                    displayText = segments.slice(-revealedCount).join('.');
+                    if (segments.length > 1) {
+                        controlsHtml = `
+                          <span class="cloud-tag-controls" style="display: inline-flex; gap: 2px; align-items: center; margin-right: 2px;">
+                            <button class="btn-cloud-seg-expand" data-tag="${tagStr}" data-seg="${revealedCount}" title="Reveal more segments to the left" style="width: 18px; height: 18px; padding: 0; border: 1px solid ${color + '66'}; background: rgba(0,0,0,0.4); color: ${color}; border-radius: 50%; font-size: 0.65rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;">‹</button>
+                            <button class="btn-cloud-seg-shrink" data-tag="${tagStr}" data-seg="${revealedCount}" title="Reveal fewer segments" style="width: 18px; height: 18px; padding: 0; border: 1px solid ${color + '66'}; background: rgba(0,0,0,0.4); color: ${color}; border-radius: 50%; font-size: 0.65rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;">›</button>
+                          </span>
+                        `;
                     }
-                } catch (e) {}
-
-                const displayText = segments.slice(-revealedCount).join('.');
-                const controlsHtml = segments.length > 1 ? `
-                  <span class="cloud-tag-controls" style="display: inline-flex; gap: 2px; align-items: center; margin-right: 2px;">
-                    <button class="btn-cloud-seg-expand" data-tag="${tagStr}" data-seg="${revealedCount}" title="Reveal more segments to the left" style="width: 18px; height: 18px; padding: 0; border: 1px solid ${color + '66'}; background: rgba(0,0,0,0.4); color: ${color}; border-radius: 50%; font-size: 0.65rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;">‹</button>
-                    <button class="btn-cloud-seg-shrink" data-tag="${tagStr}" data-seg="${revealedCount}" title="Reveal fewer segments" style="width: 18px; height: 18px; padding: 0; border: 1px solid ${color + '66'}; background: rgba(0,0,0,0.4); color: ${color}; border-radius: 50%; font-size: 0.65rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;">›</button>
-                  </span>
-                ` : '';
+                }
 
                 cloudHtml += `
                   <span class="cloud-tag-item" data-tag="${tagStr}"
