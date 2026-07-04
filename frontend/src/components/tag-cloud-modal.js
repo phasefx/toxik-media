@@ -76,6 +76,16 @@ export class TagCloudModal {
             '#00f0ff', '#ff007f', '#9d00ff', '#00ff66', '#ffaa00', '#ff00ff', '#3399ff', '#ff5533'
         ];
 
+        const activeFilter = (store.get('activeFilter') || '').trim();
+        const tokens = activeFilter ? activeFilter.split(/\s+/) : [];
+        const incTags = new Set();
+        const excTags = new Set();
+        for (const tok of tokens) {
+            if (tok.startsWith('-')) excTags.add(tok.substring(1));
+            else if (tok.startsWith('+')) incTags.add(tok.substring(1));
+            else incTags.add(tok);
+        }
+
         let cloudHtml = '';
         if (entries.length === 0) {
             cloudHtml = '<div style="color: var(--text-muted); padding: 32px; text-align: center;">No tags found on displayed media.</div>';
@@ -86,6 +96,9 @@ export class TagCloudModal {
                 const fontSize = (0.85 + ratio * 1.3).toFixed(2); // 0.85rem to 2.15rem
                 const color = colors[idx % colors.length];
                 const bg = color + '1a'; // 10% opacity
+
+                const isIncluded = incTags.has(tagStr);
+                const isExcluded = excTags.has(tagStr);
 
                 let displayText = tagStr;
                 let controlsHtml = '';
@@ -116,11 +129,24 @@ export class TagCloudModal {
                     }
                 }
 
+                const filterBtnsHtml = `
+                  <span class="cloud-tag-filter-btns" style="display: inline-flex; gap: 3px; align-items: center; margin: 0 2px;">
+                    <button class="btn-cloud-inc" data-tag="${tagStr}" title="Include (+)"
+                            style="background: ${isIncluded ? '#00ff88' : 'rgba(255,255,255,0.12)'}; color: ${isIncluded ? '#000' : '#aaa'}; border: none; font-weight: 800; font-size: 0.7rem; width: 20px; height: 20px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s ease; line-height: 1;">+</button>
+                    <button class="btn-cloud-exc" data-tag="${tagStr}" title="Exclude (-)"
+                            style="background: ${isExcluded ? '#ff4444' : 'rgba(255,255,255,0.12)'}; color: ${isExcluded ? '#fff' : '#aaa'}; border: none; font-weight: 800; font-size: 0.7rem; width: 20px; height: 20px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s ease; line-height: 1;">−</button>
+                  </span>
+                `;
+
+                const borderStyle = isIncluded ? '#00ff88' : (isExcluded ? '#ff4444' : color + '4d');
+                const boxShadow = isIncluded ? '0 0 10px rgba(0,255,136,0.5)' : (isExcluded ? '0 0 10px rgba(255,68,68,0.5)' : 'none');
+
                 cloudHtml += `
                   <span class="cloud-tag-item" data-tag="${tagStr}"
-                        style="font-size: ${fontSize}rem; color: ${color}; background: ${bg}; border: 1px solid ${color + '4d'}; padding: 4px 12px; border-radius: var(--radius-full); cursor: pointer; transition: all 0.2s ease; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; line-height: 1.3;"
+                        style="font-size: ${fontSize}rem; color: ${color}; background: ${bg}; border: 1px solid ${borderStyle}; box-shadow: ${boxShadow}; padding: 4px 12px; border-radius: var(--radius-full); cursor: pointer; transition: all 0.2s ease; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; line-height: 1.3;"
                         title="Filter by ${tagStr} (${count} item${count !== 1 ? 's' : ''})">
                     ${controlsHtml}
+                    ${filterBtnsHtml}
                     <span>${displayText}</span>
                     <span style="font-size: 0.7rem; opacity: 0.8; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 10px;">${count}</span>
                   </span>
@@ -143,7 +169,7 @@ export class TagCloudModal {
             </div>
 
             <div style="padding: 12px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2);">
-              <span style="font-size: 0.8rem; color: var(--text-muted);">💡 Click any tag pill to instantly filter the view. Use ‹ and › to reveal compound segments.</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">💡 Click <strong>+</strong> / <strong>−</strong> to combine filters (keeps modal open). Click a tag pill for full replacement.</span>
               <button class="btn" id="btn-cloud-done" style="height: 34px; padding: 0 16px;">Close</button>
             </div>
           </div>
@@ -189,8 +215,39 @@ export class TagCloudModal {
             });
         });
 
+        this.container.querySelectorAll('.btn-cloud-inc').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tag = btn.getAttribute('data-tag');
+                const activeFilter = (store.get('activeFilter') || '').trim();
+                let tokens = activeFilter ? activeFilter.split(/\s+/) : [];
+                const wasInc = tokens.some(t => t === tag || t === '+' + tag);
+                tokens = tokens.filter(t => t !== tag && t !== '+' + tag && t !== '-' + tag);
+                if (!wasInc) {
+                    tokens.push('+' + tag);
+                }
+                store.setFilter(tokens.join(' '));
+            });
+        });
+
+        this.container.querySelectorAll('.btn-cloud-exc').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tag = btn.getAttribute('data-tag');
+                const activeFilter = (store.get('activeFilter') || '').trim();
+                let tokens = activeFilter ? activeFilter.split(/\s+/) : [];
+                const wasExc = tokens.some(t => t === '-' + tag);
+                tokens = tokens.filter(t => t !== tag && t !== '+' + tag && t !== '-' + tag);
+                if (!wasExc) {
+                    tokens.push('-' + tag);
+                }
+                store.setFilter(tokens.join(' '));
+            });
+        });
+
         this.container.querySelectorAll('.cloud-tag-item').forEach(el => {
-            el.addEventListener('click', () => {
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-cloud-seg-expand') || e.target.closest('.btn-cloud-seg-shrink') || e.target.closest('.btn-cloud-inc') || e.target.closest('.btn-cloud-exc')) return;
                 const tag = el.getAttribute('data-tag');
                 store.setFilter(tag);
                 close();
