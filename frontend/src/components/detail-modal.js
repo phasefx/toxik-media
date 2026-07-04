@@ -416,6 +416,31 @@ export class DetailModal {
                   ` : ''}
                 </div>
 
+                <!-- Section 5: Transcode -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                  <div class="accordion-header" data-section="transcode" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                    <span>🔄 Transcode</span>
+                    <span>${this.expandedSections.has('transcode') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('transcode') ? `
+                    <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                      <div id="transcode-formats-container" style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); padding: 8px 0;">Loading formats...</div>
+                      </div>
+                      <div style="display: flex; gap: 8px; align-items: center; padding: 4px 0;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;">
+                          <input type="radio" name="transcode-mode-${item.id}" value="download" checked style="accent-color: var(--accent-cyan);" />
+                          ⬇️ Download
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;">
+                          <input type="radio" name="transcode-mode-${item.id}" value="import" style="accent-color: var(--accent-green);" />
+                          📥 Import
+                        </label>
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+
               </div>
             </div>
           </div>
@@ -809,6 +834,86 @@ export class DetailModal {
                 const sticky = store.get('stickyTab') || 'form';
                 store.set({ isGenerationOpen: true, generationTab: sticky, entryMode: 'V2V' });
             });
+        }
+
+        if (this.expandedSections.has('transcode')) {
+            this._loadTranscodeFormats(item);
+        }
+    }
+
+    async _loadTranscodeFormats(item) {
+        const container = this.container.querySelector('#transcode-formats-container');
+        if (!container) return;
+        const mediaId = item.id;
+        try {
+            const res = await fetch(`/api/media/${mediaId}/transcode/formats`);
+            const data = await res.json();
+            if (!data.formats || data.formats.length === 0) {
+                container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-secondary); padding: 8px 0;">No conversion formats available.</div>';
+                return;
+            }
+            const groups = {};
+            for (const f of data.formats) {
+                const mime = f.mime || '';
+                let group = 'other';
+                if (mime.startsWith('image/')) group = 'image';
+                else if (mime.startsWith('video/')) group = 'video';
+                else if (mime.startsWith('audio/')) group = 'audio';
+                if (!groups[group]) groups[group] = [];
+                groups[group].push(f);
+            }
+            const groupLabels = { image: 'Image', video: 'Video', audio: 'Audio' };
+            let html = '';
+            for (const [g, fmts] of Object.entries(groups)) {
+                const label = groupLabels[g] || g;
+                const accentColors = { image: '--accent-cyan', video: '--accent-purple', audio: '--accent-magenta' };
+                const color = `var(${accentColors[g] || '--accent-cyan'})`;
+                html += `<div style="font-size: 0.75rem; font-weight: 700; color: ${color}; margin: 4px 0 2px 0; text-transform: uppercase;">${label}</div>`;
+                html += `<div style="display: flex; flex-wrap: wrap; gap: 6px;">`;
+                for (const f of fmts) {
+                    html += `<button class="btn btn-transcode" data-format="${f.format}" data-ext="${f.target_ext}" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 0.8rem; padding: 4px 10px; height: 32px; border-radius: 6px; cursor: pointer;">.${f.format}</button>`;
+                }
+                html += `</div>`;
+            }
+            container.innerHTML = html;
+
+            container.querySelectorAll('.btn-transcode').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const format = btn.getAttribute('data-format');
+                    const ext = btn.getAttribute('data-ext');
+                    const modeRadio = this.container.querySelector(`input[name="transcode-mode-${item.id}"]:checked`);
+                    const mode = modeRadio ? modeRadio.value : 'download';
+                    btn.disabled = true;
+                    btn.textContent = '⏳...';
+                    try {
+                        if (mode === 'import') {
+                            const res = await fetch(`/api/media/${mediaId}/transcode?target_format=${format}&mode=import`, { method: 'POST' });
+                            if (!res.ok) {
+                                const errData = await res.json().catch(() => ({}));
+                                throw new Error(errData.detail || `Transcode failed (${res.status})`);
+                            }
+                            const imported = await res.json();
+                            alert(`Imported as "${imported.filename}"`);
+                            store.set({ activeModalItem: null });
+                            await store.loadBrowse(true);
+                        } else {
+                            const a = document.createElement('a');
+                            a.href = `/api/media/${item.id}/transcode?target_format=${format}&mode=download`;
+                            a.download = `${item.filename || 'output'}${ext}`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }
+                    } catch (err) {
+                        alert(`Transcode error: ${err.message}`);
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = `.${format}`;
+                    }
+                });
+            });
+        } catch (err) {
+            container.innerHTML = `<div style="font-size: 0.8rem; color: #ff6b6b; padding: 8px 0;">Failed to load formats: ${err.message}</div>`;
         }
     }
 }

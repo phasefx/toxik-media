@@ -6,6 +6,7 @@ import os
 from backend.models.database import get_db
 from backend.models.schemas import MediaItem, MediaImportRequest, BatchTagRequest
 from backend.services.media_service import import_media, get_media_item, delete_media_item, batch_tag_media, extract_video_frame
+from backend.services.transcode_service import available_targets, transcode_file
 
 router = APIRouter(prefix="/api/media", tags=["media"])
 
@@ -55,6 +56,46 @@ async def extract_frame_endpoint(media_id: str, mode: str = Query("first"), db: 
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Extraction failed: {e}")
+
+@router.get("/{media_id}/transcode/formats")
+async def get_transcode_formats(media_id: str, db: aiosqlite.Connection = Depends(get_db)):
+    item = await get_media_item(db, media_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Media item not found")
+    ext = os.path.splitext(item.filepath)[1].lower() if item.filepath else ""
+    formats = available_targets(ext)
+    return {"formats": formats, "source_ext": ext, "source_media_type": item.media_type}
+
+@router.post("/{media_id}/transcode")
+async def transcode_media_endpoint(
+    media_id: str,
+    target_format: str = Query(..., description="Target format key (e.g. mp4, webp, flac)"),
+    mode: str = Query("download", description="'download' returns the file; 'import' adds it to the library"),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    item = await get_media_item(db, media_id)
+    if not item or not os.path.exists(item.filepath):
+        raise HTTPException(status_code=404, detail="Media file not found on disk")
+    try:
+        out_path = await transcode_file(item.filepath, target_format)
+    except (FileNotFoundError, ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if mode == "import":
+        imported = await import_media(db, [out_path], tags=item.tags)
+        if not imported:
+            raise HTTPException(status_code=500, detail="Transcoding succeeded but import into library failed")
+        return imported[0]
+
+    from pathlib import Path
+    from mimetypes import guess_type
+    mime, _ = guess_type(out_path)
+    return FileResponse(
+        path=out_path,
+        media_type=mime or "application/octet-stream",
+        filename=Path(out_path).name,
+        content_disposition_type="attachment",
+    )
 
 @router.get("/{media_id}/file")
 async def serve_media_file(media_id: str, db: aiosqlite.Connection = Depends(get_db)):
