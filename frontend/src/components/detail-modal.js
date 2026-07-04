@@ -388,21 +388,24 @@ export class DetailModal {
                       </div>
                       <div id="epub-render-area" style="flex: 1; width: 100%; height: 100%; background: #fff; overflow: hidden; position: relative;"></div>
                     `;
-                    try {
-                        const book = ePub(mediaUrl);
-                        const rendition = book.renderTo("epub-render-area", {
-                            width: "100%",
-                            height: "100%",
-                            spread: "always"
-                        });
-                        rendition.display();
-                        const prevBtn = docEl.querySelector('#epub-prev');
-                        const nextBtn = docEl.querySelector('#epub-next');
-                        if (prevBtn) prevBtn.onclick = () => rendition.prev();
-                        if (nextBtn) nextBtn.onclick = () => rendition.next();
-                    } catch (e) {
-                        docEl.innerHTML = `<div style="color:#ff4444; padding: 40px;">Failed to render EPUB: ${e.message}</div>`;
-                    }
+                    fetch(mediaUrl)
+                      .then(res => res.arrayBuffer())
+                      .then(buffer => {
+                          const book = ePub(buffer);
+                          const rendition = book.renderTo("epub-render-area", {
+                              width: "100%",
+                              height: "100%",
+                              spread: "always"
+                          });
+                          rendition.display();
+                          const prevBtn = docEl.querySelector('#epub-prev');
+                          const nextBtn = docEl.querySelector('#epub-next');
+                          if (prevBtn) prevBtn.onclick = () => rendition.prev();
+                          if (nextBtn) nextBtn.onclick = () => rendition.next();
+                      })
+                      .catch(e => {
+                          docEl.innerHTML = `<div style="color:#ff4444; padding: 40px;">Failed to render EPUB: ${e.message}</div>`;
+                      });
                 } else {
                     fetch(mediaUrl).then(res => res.text()).then(text => {
                         const docEl = this.container.querySelector('#doc-viewer-container');

@@ -64,7 +64,8 @@ async def serve_media_file(media_id: str, db: aiosqlite.Connection = Depends(get
     return FileResponse(
         path=item.filepath,
         media_type=item.mime_type,
-        filename=item.filename
+        filename=item.filename,
+        content_disposition_type="inline"
     )
 @router.post("/{media_id}/upload_comfyui")
 async def upload_media_to_comfyui(media_id: str, db: aiosqlite.Connection = Depends(get_db)):
