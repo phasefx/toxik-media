@@ -412,11 +412,13 @@ async def auto_tag_media(db: aiosqlite.Connection, media_ids: List[str]) -> Dict
         w_name = w.get("name", w_id)
         if not w_id: continue
 
-        tags = ["AI", w_name]
-        if w_id != w_name and w_id:
-            tags.append(w_id)
+        tags = [f"AI.{w_id}"]
+        if w_name and w_name != w_id:
+            tags.append(f"AI.{w_name}")
         for t in w.get("tags_auto", []):
-            if t not in tags:
+            if t and not t.startswith("AI.") and t != "AI":
+                tags.append(f"AI.{t}")
+            elif t and t != "AI":
                 tags.append(t)
 
         stem_l = w_id.lower()
@@ -426,8 +428,33 @@ async def auto_tag_media(db: aiosqlite.Connection, media_ids: List[str]) -> Dict
 
     # Query media items
     placeholders = ",".join("?" for _ in media_ids)
-    cursor = await db.execute(f"SELECT id, filename, filepath FROM media WHERE id IN ({placeholders})", media_ids)
+    cursor = await db.execute(f"SELECT id, filename, filepath, media_type, width, height, duration_ms FROM media WHERE id IN ({placeholders})", media_ids)
     rows = await cursor.fetchall()
+
+    import re
+    from PIL import Image
+
+    # Batch exiftool execution for robust metadata peeking
+    file_meta_map = {}
+    try:
+        all_fps = [r["filepath"] for r in rows if r["filepath"] and os.path.exists(r["filepath"])]
+        if all_fps:
+            for i in range(0, len(all_fps), 100):
+                batch_fps = all_fps[i:i+100]
+                cmd = ["exiftool", "-json"] + batch_fps
+                proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                stdout, _ = await proc.communicate()
+                if proc.returncode == 0 and stdout:
+                    try:
+                        meta_list = json.loads(stdout.decode('utf-8', errors='ignore'))
+                        for m in meta_list:
+                            src_f = m.get("SourceFile")
+                            if src_f:
+                                file_meta_map[src_f] = json.dumps(m)
+                    except Exception:
+                        pass
+    except Exception as e:
+        logger.warning(f"Batch exiftool extraction failed in auto_tag_media: {e}")
 
     tag_groups: Dict[tuple, List[str]] = {}
     item_tags_map: Dict[str, List[str]] = {}
@@ -436,17 +463,97 @@ async def auto_tag_media(db: aiosqlite.Connection, media_ids: List[str]) -> Dict
         mid = r["id"]
         fn = (r["filename"] or "").lower()
         fp = (r["filepath"] or "").lower()
+        mtype = (r["media_type"] or "").lower()
 
         tags_to_add = set()
         dir_tag = get_directory_tag(r["filepath"])
         if dir_tag:
             tags_to_add.add(dir_tag)
 
-        # Check workflow matching
+        # 1. Format / Extension tag
+        ext = Path(r["filename"] or "").suffix.lower().lstrip(".")
+        if ext:
+            tags_to_add.add(f"Format.{ext.upper()}")
+
+        # 2. Resolution & Aspect Ratio tags
+        w, h = r["width"], r["height"]
+        if w and h and w > 0 and h > 0:
+            max_dim = max(w, h)
+            if max_dim >= 3840: tags_to_add.add("Resolution.4K")
+            elif max_dim >= 2560: tags_to_add.add("Resolution.2K")
+            elif max_dim >= 1920: tags_to_add.add("Resolution.1080p")
+            elif max_dim >= 1280: tags_to_add.add("Resolution.720p")
+            else: tags_to_add.add("Resolution.SD")
+
+            ratio = w / float(h)
+            if ratio > 1.15: tags_to_add.add("Aspect.Landscape")
+            elif ratio < 0.85: tags_to_add.add("Aspect.Portrait")
+            else: tags_to_add.add("Aspect.Square")
+
+        # 3. Duration tags
+        dur = r["duration_ms"]
+        if dur and dur > 0:
+            sec = dur / 1000.0
+            if sec < 15: tags_to_add.add("Duration.Short")
+            elif sec <= 60: tags_to_add.add("Duration.Medium")
+            else: tags_to_add.add("Duration.Long")
+
+        # 4. Check workflow matching
         for stem_l, alt_l, alt2_l, w_tags in wf_matchers:
             if stem_l in fn or alt_l in fn or alt2_l in fn or stem_l in fp or alt_l in fp or alt2_l in fp:
                 for t in w_tags:
                     tags_to_add.add(t)
+
+        # 5. Peek at EXIF, ComfyUI, A1111, and embedded metadata for AI Models (.gguf, .safetensors, .ckpt, .pt) & AI properties
+        meta_strings = [r["filename"] or "", r["filepath"] or "", file_meta_map.get(r["filepath"], "")]
+        if mtype == "image" and r["filepath"] and os.path.exists(r["filepath"]):
+            try:
+                def _read_pil_meta():
+                    res = []
+                    with Image.open(r["filepath"]) as img:
+                        for k, v in img.info.items():
+                            if isinstance(v, str): res.append(v)
+                            elif isinstance(v, bytes):
+                                try:
+                                    res.append(v.decode('utf-8', errors='ignore'))
+                                except Exception:
+                                    pass
+                    return res
+                meta_strings.extend(await asyncio.to_thread(_read_pil_meta))
+            except Exception:
+                pass
+
+        combined_meta_text = " ".join(meta_strings)
+
+        # Extract AI models (.gguf, .safetensors, .ckpt, .pt)
+        model_matches = re.findall(r'([a-zA-Z0-9_\-\.\/\\]+\.(?:safetensors|gguf|ckpt|pt))\b', combined_meta_text, re.IGNORECASE)
+        for m_match in model_matches:
+            m_name = Path(m_match).name
+            if len(m_name) > 3:
+                tags_to_add.add(f"AI.Model.{m_name}")
+
+        # Extract AI Generators
+        if "ComfyUI" in combined_meta_text or '"class_type"' in combined_meta_text:
+            tags_to_add.add("AI.Generator.ComfyUI")
+        if "Automatic1111" in combined_meta_text or "sd-webui" in combined_meta_text or ("Steps: " in combined_meta_text and "Sampler: " in combined_meta_text):
+            tags_to_add.add("AI.Generator.A1111")
+        if "SwarmUI" in combined_meta_text:
+            tags_to_add.add("AI.Generator.SwarmUI")
+        if "Midjourney" in combined_meta_text:
+            tags_to_add.add("AI.Generator.Midjourney")
+
+        # Extract Sampler and Scheduler if present
+        sampler_matches = re.findall(r'"(?:sampler_name|sampler)"\s*:\s*"([^"]+)"|Sampler:\s*([a-zA-Z0-9_\-\s]+)(?:,|$)', combined_meta_text, re.IGNORECASE)
+        for sm in sampler_matches:
+            s_val = (sm[0] or sm[1]).strip()
+            if s_val and len(s_val) < 30:
+                tags_to_add.add(f"AI.Sampler.{s_val}")
+
+        sched_matches = re.findall(r'"(?:scheduler)"\s*:\s*"([^"]+)"|Schedule type:\s*([a-zA-Z0-9_\-\s]+)(?:,|$)', combined_meta_text, re.IGNORECASE)
+        for scm in sched_matches:
+            sc_val = (scm[0] or scm[1]).strip()
+            if sc_val and len(sc_val) < 30:
+                tags_to_add.add(f"AI.Scheduler.{sc_val}")
 
         if tags_to_add:
             t_tuple = tuple(sorted(tags_to_add))
