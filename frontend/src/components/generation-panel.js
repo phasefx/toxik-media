@@ -39,6 +39,25 @@ export class GenerationPanel {
         });
     }
 
+    loadStickyPane() {
+        try {
+            return JSON.parse(localStorage.getItem('toxik_gen_sticky_pane')) || {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    saveStickyPane(entryMode, updates) {
+        if (!entryMode) return;
+        const pane = this.loadStickyPane();
+        pane[entryMode] = { ...pane[entryMode], ...updates };
+        try {
+            localStorage.setItem('toxik_gen_sticky_pane', JSON.stringify(pane));
+        } catch (e) {
+            console.warn('Failed to save sticky pane to localStorage:', e);
+        }
+    }
+
     render(isOpen, workflows, jobs) {
         if (!isOpen) {
             this.container.innerHTML = '';
@@ -53,16 +72,20 @@ export class GenerationPanel {
         const displayWorkflows = genWorkflows.length > 0 ? genWorkflows : workflows;
 
         const entryMode = store.get('entryMode') || 'ALL';
-        if (this.lastEntryMode !== entryMode) {
+        const stickyPane = this.loadStickyPane()[entryMode] || {};
+
+        if (!this.lastOpen || this.lastEntryMode !== entryMode) {
             this.lastEntryMode = entryMode;
-            const stickyForMode = this.stickyWorkflows[entryMode];
-            if (stickyForMode && displayWorkflows.some(w => w.id === stickyForMode)) {
-                this.selectedWorkflowId = stickyForMode;
+            if (stickyPane.workflowId && displayWorkflows.some(w => w.id === stickyPane.workflowId)) {
+                this.selectedWorkflowId = stickyPane.workflowId;
             } else if (entryMode !== 'ALL' && entryMode !== 'BATCH') {
                 const matchingType = displayWorkflows.find(w => w.type === entryMode || (entryMode === 'I2V' && (w.type === 'I2V' || w.type === 'I2I')) || (entryMode === 'T2V' && w.type === 'T2V') || (entryMode === 'T2I' && w.type === 'T2I') || (entryMode === 'I2I' && w.type === 'I2I') || (entryMode === 'V2V' && w.type === 'V2V'));
                 if (matchingType) {
                     this.selectedWorkflowId = matchingType.id;
                 }
+            }
+            if (stickyPane.onSubmit) {
+                this.onSubmitAction = stickyPane.onSubmit;
             }
             this.lastWorkflowId = null; // force form re-render on mode change
         }
@@ -258,13 +281,24 @@ export class GenerationPanel {
             inputsHtml = '<div style="color: var(--text-muted); grid-column: 1 / -1;">No workflows registered.</div>';
         }
 
-        let autoTags = currentWorkflow ? [...currentWorkflow.tags_auto] : [];
-        if (activeModalItem && activeModalItem.tags) {
-            for (const t of activeModalItem.tags) {
-                if (!autoTags.includes(t)) autoTags.push(t);
+        let defaultTagsStr = '';
+        if (stickyPane.autoTags !== undefined) {
+            let tagsList = stickyPane.autoTags.split(',').map(t => t.trim()).filter(Boolean);
+            if (activeModalItem && activeModalItem.tags) {
+                for (const t of activeModalItem.tags) {
+                    if (!tagsList.includes(t)) tagsList.push(t);
+                }
             }
+            defaultTagsStr = tagsList.join(', ');
+        } else {
+            let autoTags = currentWorkflow ? [...currentWorkflow.tags_auto] : [];
+            if (activeModalItem && activeModalItem.tags) {
+                for (const t of activeModalItem.tags) {
+                    if (!autoTags.includes(t)) autoTags.push(t);
+                }
+            }
+            defaultTagsStr = autoTags.join(', ');
         }
-        const defaultTagsStr = autoTags.join(', ');
 
         this.container.innerHTML = `
           <!-- Center Screen Modal Backdrop -->
@@ -602,9 +636,19 @@ export class GenerationPanel {
             radio.addEventListener('change', (e) => {
                 if (e.target.checked) {
                     this.onSubmitAction = e.target.value;
+                    const mode = store.get('entryMode') || 'ALL';
+                    this.saveStickyPane(mode, { onSubmit: this.onSubmitAction });
                 }
             });
         });
+
+        const tagsInput = this.container.querySelector('#input-gen-tags');
+        if (tagsInput) {
+            tagsInput.addEventListener('input', (e) => {
+                const mode = store.get('entryMode') || 'ALL';
+                this.saveStickyPane(mode, { autoTags: e.target.value });
+            });
+        }
 
         this.container.querySelectorAll('.btn-utility-action').forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -630,7 +674,7 @@ export class GenerationPanel {
             sel.addEventListener('change', (e) => {
                 this.selectedWorkflowId = e.target.value;
                 const mode = store.get('entryMode') || 'ALL';
-                this.stickyWorkflows[mode] = this.selectedWorkflowId;
+                this.saveStickyPane(mode, { workflowId: this.selectedWorkflowId });
                 this.lastWorkflowId = null; // Force re-render of form fields
                 this.render(true, store.get('workflows'), store.get('jobs'));
             });
@@ -647,6 +691,12 @@ export class GenerationPanel {
         if (btnDefaults && workflow) {
             btnDefaults.addEventListener('click', () => {
                 localStorage.removeItem('toxik_wf_sticky_' + workflow.id);
+                const mode = store.get('entryMode') || 'ALL';
+                const pane = this.loadStickyPane();
+                if (pane[mode]) {
+                    delete pane[mode].autoTags;
+                    try { localStorage.setItem('toxik_gen_sticky_pane', JSON.stringify(pane)); } catch (e) {}
+                }
                 if (workflow.form_fields && workflow.form_fields.length > 0) {
                     workflow.form_fields.forEach((ff, idx) => {
                         const el = this.container.querySelector(`#ff-${idx}`);
@@ -663,6 +713,17 @@ export class GenerationPanel {
                 if (primEl) primEl.value = '';
                 const audEl = this.container.querySelector('#input-audio_input');
                 if (audEl) audEl.value = '';
+                const tagsEl = this.container.querySelector('#input-gen-tags');
+                if (tagsEl && workflow.tags_auto) {
+                    let autoTags = [...workflow.tags_auto];
+                    const activeItem = store.get('activeModalItem');
+                    if (activeItem && activeItem.tags) {
+                        for (const t of activeItem.tags) {
+                            if (!autoTags.includes(t)) autoTags.push(t);
+                        }
+                    }
+                    tagsEl.value = autoTags.join(', ');
+                }
                 btnDefaults.textContent = '✅ Resetted!';
                 setTimeout(() => btnDefaults.textContent = '🔄 Defaults', 1500);
             });
@@ -775,6 +836,8 @@ export class GenerationPanel {
                     const savedData = JSON.stringify({ timestamp: Date.now(), values: inputs });
                     localStorage.setItem('toxik_wf_sticky_' + workflow.id, savedData);
                     localStorage.setItem('toxik_wf_last_' + workflow.id, savedData);
+                    const mode = store.get('entryMode') || 'ALL';
+                    if (tagsInput) this.saveStickyPane(mode, { autoTags: tagsInput.value, workflowId: workflow.id, onSubmit: this.onSubmitAction });
                 } catch (err) {
                     console.warn('Could not save sticky values:', err);
                 }
