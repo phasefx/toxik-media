@@ -90,7 +90,7 @@ export class FilterBar {
               <button class="btn btn-primary" id="btn-top-i2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Image-to-Image Generation (Requires Selection)">🖼️ I2I</button>
               <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
               <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
-              <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; margin-left: 8px; border-radius: 6px; cursor: pointer;" title="Workflow & Path Configuration">⚙️</button>
+              <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; margin-left: 8px; border-radius: 6px; cursor: pointer;" title="Configuration Settings">⚙️</button>
               ${isConnected ? `
                 <div id="conn-status-indicator" title="Backend Server: Online & Responsive" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #00ff88; margin-left: 4px; cursor: pointer; transition: all 0.2s ease;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 8px #00ff88; display: inline-block;"></span>
@@ -248,6 +248,13 @@ export class FilterBar {
         const uploadMode = localStorage.getItem('toxik_cfg_upload_mode') || 'no_upload';
         const pathMode = localStorage.getItem('toxik_cfg_path_mode') || 'full_path';
         const pathPrefix = localStorage.getItem('toxik_cfg_path_prefix') || '';
+
+        const outputPrefixPathMode = localStorage.getItem('toxik_cfg_output_prefix_path_mode') || 'full';
+        const outputPrefixFilenameMode = localStorage.getItem('toxik_cfg_output_prefix_filename_mode') || 'workflow_name';
+        const outputPrefixFilenameCustom = localStorage.getItem('toxik_cfg_output_prefix_filename_custom') || '';
+        const outputPrefixCustomPrefix = localStorage.getItem('toxik_cfg_output_prefix_custom_prefix') || '';
+        const outputPrefixCustomSuffix = localStorage.getItem('toxik_cfg_output_prefix_custom_suffix') || '';
+
         let watchDirs = [];
         try {
             const parsed = JSON.parse(localStorage.getItem('toxik_watch_dirs') || '[]');
@@ -268,16 +275,19 @@ export class FilterBar {
             </div>
 
             <div style="display: flex; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.2);">
-              <button id="cfg-tab-btn-workflow" class="btn" style="flex: 1; height: 44px; font-size: 0.9rem; font-weight: 700; background: transparent; border: none; border-bottom: 2px solid var(--accent-cyan); color: #fff; cursor: pointer; transition: all 0.2s ease;">
-                ⚙️ Workflow & Path
+              <button id="cfg-tab-btn-input" class="btn" style="flex: 1; height: 44px; font-size: 0.9rem; font-weight: 700; background: transparent; border: none; border-bottom: 2px solid var(--accent-cyan); color: #fff; cursor: pointer; transition: all 0.2s ease;">
+                📥 ComfyUI Input
+              </button>
+              <button id="cfg-tab-btn-output" class="btn" style="flex: 1; height: 44px; font-size: 0.9rem; font-weight: 600; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease;">
+                📤 ComfyUI Output
               </button>
               <button id="cfg-tab-btn-watch" class="btn" style="flex: 1; height: 44px; font-size: 0.9rem; font-weight: 600; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease;">
                 📁 Watch Directories
               </button>
             </div>
 
-            <!-- TAB 1: WORKFLOW & PATH -->
-            <div id="cfg-pane-workflow" style="padding: 24px; display: flex; flex-direction: column; gap: 20px; max-height: 65vh; overflow-y: auto;">
+            <!-- TAB 1: COMFYUI INPUT -->
+            <div id="cfg-pane-input" style="padding: 24px; display: flex; flex-direction: column; gap: 20px; max-height: 65vh; overflow-y: auto;">
               <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
                 Configure how media files (images, videos, audio) are prepared and inserted into ComfyUI workflows when jobs are submitted. These settings are sticky across sessions.
               </p>
@@ -332,7 +342,73 @@ export class FilterBar {
               </div>
             </div>
 
-            <!-- TAB 2: WATCH DIRECTORIES -->
+            <!-- TAB 2: COMFYUI OUTPUT -->
+            <div id="cfg-pane-output" style="padding: 24px; display: none; flex-direction: column; gap: 20px; max-height: 65vh; overflow-y: auto;">
+              <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                Configure the filename prefix inserted into the workflow's output node (e.g. SaveImage). Controls how output files are organized on disk.
+              </p>
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 8px;">
+                  1. Path Information
+                </label>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0 0 12px 0;">
+                  Controls the directory structure of the output prefix.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_output_prefix_path_mode" value="full" ${outputPrefixPathMode === 'full' ? 'checked' : ''} style="accent-color: var(--accent-cyan);" />
+                    <span>1) Timestamp directory + input subfolder (e.g. 20260704-025305/fav-qwen/)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_output_prefix_path_mode" value="subdir_only" ${outputPrefixPathMode === 'subdir_only' ? 'checked' : ''} style="accent-color: var(--accent-cyan);" />
+                    <span>2) Input subfolder only (e.g. fav-qwen/)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_output_prefix_path_mode" value="none" ${outputPrefixPathMode === 'none' ? 'checked' : ''} style="accent-color: var(--accent-cyan);" />
+                    <span>3) No pathing (flat structure)</span>
+                  </label>
+                </div>
+              </div>
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--accent-purple); margin-bottom: 8px;">
+                  2. Filename
+                </label>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0 0 12px 0;">
+                  Controls the base filename portion of the output prefix.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_output_prefix_filename_mode" value="workflow_name" ${outputPrefixFilenameMode === 'workflow_name' ? 'checked' : ''} style="accent-color: var(--accent-purple);" />
+                    <span>1) Base workflow filename (e.g. qwen-image-edit-2509-q8)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_output_prefix_filename_mode" value="timestamp" ${outputPrefixFilenameMode === 'timestamp' ? 'checked' : ''} style="accent-color: var(--accent-purple);" />
+                    <span>2) Timestamp (e.g. 2026-07-04-02-59-00)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer;">
+                    <input type="radio" name="cfg_output_prefix_filename_mode" value="custom" ${outputPrefixFilenameMode === 'custom' ? 'checked' : ''} style="accent-color: var(--accent-purple);" />
+                    <span>3) Custom string</span>
+                  </label>
+                </div>
+                <div id="cfg-output-filename-custom-wrapper" style="margin-top: 10px; ${outputPrefixFilenameMode === 'custom' ? '' : 'display: none;'}">
+                  <input type="text" id="cfg-output-filename-custom-input" class="input" placeholder="e.g. my-image" value="${outputPrefixFilenameCustom}" style="width: 100%; height: 38px; font-size: 0.85rem; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 12px; color: #fff;" />
+                </div>
+              </div>
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--accent-green); margin-bottom: 8px;">
+                  3. Prefix &amp; Suffix
+                </label>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0 0 12px 0;">
+                  Optional strings prepended / appended to the filename portion.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <input type="text" id="cfg-output-prefix-input" class="input" placeholder="Custom prefix (e.g. my_)" value="${outputPrefixCustomPrefix}" style="width: 100%; height: 38px; font-size: 0.85rem; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 12px; color: #fff;" />
+                  <input type="text" id="cfg-output-suffix-input" class="input" placeholder="Custom suffix (e.g. _v2)" value="${outputPrefixCustomSuffix}" style="width: 100%; height: 38px; font-size: 0.85rem; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 12px; color: #fff;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: WATCH DIRECTORIES -->
             <div id="cfg-pane-watch" style="padding: 24px; display: none; flex-direction: column; gap: 20px; max-height: 65vh; overflow-y: auto;">
               <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
                 Directories listed below will be automatically scanned for new or changed media files (including within sub-directories) on hard page loads and reloads.
@@ -359,31 +435,39 @@ export class FilterBar {
             if (e.target === modalEl) closeModal();
         });
 
-        const tabWorkflowBtn = modalEl.querySelector('#cfg-tab-btn-workflow');
-        const tabWatchBtn = modalEl.querySelector('#cfg-tab-btn-watch');
-        const paneWorkflow = modalEl.querySelector('#cfg-pane-workflow');
-        const paneWatch = modalEl.querySelector('#cfg-pane-watch');
+        const activateTab = (activeId) => {
+            const map = {
+                'cfg-tab-btn-input': 'cfg-pane-input',
+                'cfg-tab-btn-output': 'cfg-pane-output',
+                'cfg-tab-btn-watch': 'cfg-pane-watch',
+            };
+            Object.keys(map).forEach(tabId => {
+                const btn = modalEl.querySelector(`#${tabId}`);
+                const isActive = tabId === activeId;
+                btn.style.borderBottomColor = isActive ? 'var(--accent-cyan)' : 'transparent';
+                btn.style.color = isActive ? '#fff' : 'var(--text-secondary)';
+                btn.style.fontWeight = isActive ? '700' : '600';
+            });
+            Object.values(map).forEach(paneId => {
+                const pane = modalEl.querySelector(`#${paneId}`);
+                pane.style.display = paneId === map[activeId] ? 'flex' : 'none';
+            });
+        };
 
-        tabWorkflowBtn.addEventListener('click', () => {
-            tabWorkflowBtn.style.borderBottomColor = 'var(--accent-cyan)';
-            tabWorkflowBtn.style.color = '#fff';
-            tabWorkflowBtn.style.fontWeight = '700';
-            tabWatchBtn.style.borderBottomColor = 'transparent';
-            tabWatchBtn.style.color = 'var(--text-secondary)';
-            tabWatchBtn.style.fontWeight = '600';
-            paneWorkflow.style.display = 'flex';
-            paneWatch.style.display = 'none';
-        });
+        modalEl.querySelector('#cfg-tab-btn-input')?.addEventListener('click', () => activateTab('cfg-tab-btn-input'));
+        modalEl.querySelector('#cfg-tab-btn-output')?.addEventListener('click', () => activateTab('cfg-tab-btn-output'));
+        modalEl.querySelector('#cfg-tab-btn-watch')?.addEventListener('click', () => activateTab('cfg-tab-btn-watch'));
 
-        tabWatchBtn.addEventListener('click', () => {
-            tabWatchBtn.style.borderBottomColor = 'var(--accent-cyan)';
-            tabWatchBtn.style.color = '#fff';
-            tabWatchBtn.style.fontWeight = '700';
-            tabWorkflowBtn.style.borderBottomColor = 'transparent';
-            tabWorkflowBtn.style.color = 'var(--text-secondary)';
-            tabWorkflowBtn.style.fontWeight = '600';
-            paneWatch.style.display = 'flex';
-            paneWorkflow.style.display = 'none';
+        // Show/hide custom filename input when radio changes
+        modalEl.querySelectorAll('input[name="cfg_output_prefix_filename_mode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                const wrapper = modalEl.querySelector('#cfg-output-filename-custom-wrapper');
+                if (radio.value === 'custom' && radio.checked) {
+                    wrapper.style.display = '';
+                } else {
+                    wrapper.style.display = 'none';
+                }
+            });
         });
 
         const renderWatchDirs = () => {
@@ -439,9 +523,20 @@ export class FilterBar {
             const selPath = modalEl.querySelector('input[name="cfg_path_mode"]:checked')?.value || 'full_path';
             const valPrefix = modalEl.querySelector('#cfg-path-prefix-input')?.value || '';
 
+            const selOutputPathMode = modalEl.querySelector('input[name="cfg_output_prefix_path_mode"]:checked')?.value || 'full';
+            const selOutputFilenameMode = modalEl.querySelector('input[name="cfg_output_prefix_filename_mode"]:checked')?.value || 'workflow_name';
+            const valOutputFilenameCustom = modalEl.querySelector('#cfg-output-filename-custom-input')?.value || '';
+            const valOutputPrefix = modalEl.querySelector('#cfg-output-prefix-input')?.value || '';
+            const valOutputSuffix = modalEl.querySelector('#cfg-output-suffix-input')?.value || '';
+
             localStorage.setItem('toxik_cfg_upload_mode', selUpload);
             localStorage.setItem('toxik_cfg_path_mode', selPath);
             localStorage.setItem('toxik_cfg_path_prefix', valPrefix);
+            localStorage.setItem('toxik_cfg_output_prefix_path_mode', selOutputPathMode);
+            localStorage.setItem('toxik_cfg_output_prefix_filename_mode', selOutputFilenameMode);
+            localStorage.setItem('toxik_cfg_output_prefix_filename_custom', valOutputFilenameCustom);
+            localStorage.setItem('toxik_cfg_output_prefix_custom_prefix', valOutputPrefix);
+            localStorage.setItem('toxik_cfg_output_prefix_custom_suffix', valOutputSuffix);
             localStorage.setItem('toxik_watch_dirs', JSON.stringify(watchDirs));
 
             if (watchDirs.length > 0) {

@@ -440,6 +440,58 @@ def build_prefix(primary_input: Optional[str], suffix: str) -> str:
 
     return f"{prefix}{name}-{ts}{suffix}".lstrip("-")
 
+def build_output_prefix(
+    primary_input: Optional[str],
+    workflow_id: str,
+    path_mode: str = "full",
+    filename_mode: str = "workflow_name",
+    custom_filename: str = "",
+    filename_prefix: str = "",
+    filename_suffix: str = "",
+) -> str:
+    """Build a filename prefix for the ComfyUI output node with configurable path and filename axes.
+
+    The resulting string is used as the ``filename_prefix`` on save nodes (SaveImage, etc.).
+
+    Path modes (directory structure):
+        full       →  {timestamp}/{input_stem}/
+        subdir_only → {input_stem}/
+        none       →  (flat, no trailing slash)
+
+    Filename modes:
+        workflow_name → workflow_id (e.g. ``qwen-image-edit-2509-q8``)
+        timestamp     → ``%Y-%m-%d-%H-%M-%S``
+        custom        → custom_filename value
+
+    The final prefix is assembled as::
+
+        {path}{filename_prefix}{filename_part}{filename_suffix}
+    """
+    ts = time.strftime("%Y%m%d-%H%M%S")
+
+    input_stem = ""
+    if primary_input:
+        name = Path(primary_input).stem
+        name = re.sub(r"_\d{5,}$", "", name)
+        name = re.sub(r"-\d{8}-\d{6}-[a-zA-Z0-9_]+$", "", name)
+        input_stem = (name or Path(primary_input).stem)[:100]
+
+    if path_mode == "full":
+        path_part = f"{ts}/" + (f"{input_stem}/" if input_stem else "")
+    elif path_mode == "subdir_only":
+        path_part = f"{input_stem}/" if input_stem else ""
+    else:
+        path_part = ""
+
+    if filename_mode == "timestamp":
+        fname = time.strftime("%Y-%m-%d-%H-%M-%S")
+    elif filename_mode == "custom":
+        fname = custom_filename or "output"
+    else:
+        fname = Path(workflow_id).stem
+
+    return f"{path_part}{filename_prefix}{fname}{filename_suffix}"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUT COLLECTION
 # ─────────────────────────────────────────────────────────────────────────────

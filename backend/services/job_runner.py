@@ -130,7 +130,7 @@ async def extract_last_frame(video_path: str, output_dir: Path) -> str:
 
 async def compute_patched_workflow(workflow_id: str, inputs: dict, seed: Optional[int] = None) -> dict:
     """Compute the runtime patched ComfyUI workflow JSON for a given workflow and inputs."""
-    from backend.services.comfyui_service import discover_workflow, assemble, apply_patches, Patch, build_prefix
+    from backend.services.comfyui_service import discover_workflow, assemble, apply_patches, Patch, build_output_prefix
 
     workflow_path = _find_workflow_path(workflow_id)
 
@@ -172,9 +172,23 @@ async def compute_patched_workflow(workflow_id: str, inputs: dict, seed: Optiona
         except Exception:
             seed = random.randint(0, 2**31 - 1)
 
+    output_prefix_path_mode = inputs_copy.pop("_output_prefix_path_mode", "full")
+    output_prefix_filename_mode = inputs_copy.pop("_output_prefix_filename_mode", "workflow_name")
+    output_prefix_filename_custom = inputs_copy.pop("_output_prefix_filename_custom", "")
+    output_prefix_custom_prefix = inputs_copy.pop("_output_prefix_custom_prefix", "")
+    output_prefix_custom_suffix = inputs_copy.pop("_output_prefix_custom_suffix", "")
+
     values = {
         **patchable_values,
-        "prefix": build_prefix(None, f"-{workflow_id}"),
+        "prefix": build_output_prefix(
+            inputs_copy.get("primary_input"),
+            workflow_id,
+            output_prefix_path_mode,
+            output_prefix_filename_mode,
+            output_prefix_filename_custom,
+            output_prefix_custom_prefix,
+            output_prefix_custom_suffix,
+        ),
         "seed": seed,
     }
 
@@ -207,7 +221,7 @@ async def compute_patched_workflow(workflow_id: str, inputs: dict, seed: Optiona
 async def _execute_job(db, job: dict):
     """Execute a single generation job against ComfyUI."""
     from backend.services.comfyui_service import (
-        discover_workflow, assemble, apply_patches, build_prefix,
+        discover_workflow, assemble, apply_patches, build_output_prefix,
         collect_outputs, submit_to_comfyui, poll_comfyui_history,
         download_comfyui_output, upload_to_comfyui, Patch
     )
@@ -239,6 +253,12 @@ async def _execute_job(db, job: dict):
         upload_mode = inputs.pop("_upload_mode", "no_upload")
         path_mode = inputs.pop("_path_mode", "full_path")
         path_prefix = inputs.pop("_path_prefix", "")
+
+        output_prefix_path_mode = inputs.pop("_output_prefix_path_mode", "full")
+        output_prefix_filename_mode = inputs.pop("_output_prefix_filename_mode", "workflow_name")
+        output_prefix_filename_custom = inputs.pop("_output_prefix_filename_custom", "")
+        output_prefix_custom_prefix = inputs.pop("_output_prefix_custom_prefix", "")
+        output_prefix_custom_suffix = inputs.pop("_output_prefix_custom_suffix", "")
 
         count = 1
         chain_count = 1
@@ -299,7 +319,15 @@ async def _execute_job(db, job: dict):
 
             values = {
                 **patchable_values,
-                "prefix": build_prefix(None, f"-{workflow_id}"),
+                "prefix": build_output_prefix(
+                    inputs.get("primary_input"),
+                    workflow_id,
+                    output_prefix_path_mode,
+                    output_prefix_filename_mode,
+                    output_prefix_filename_custom,
+                    output_prefix_custom_prefix,
+                    output_prefix_custom_suffix,
+                ),
                 "seed": seed,
             }
 

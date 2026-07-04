@@ -200,7 +200,12 @@ export const api = {
             ...inputs,
             _upload_mode: localStorage.getItem('toxik_cfg_upload_mode') || 'no_upload',
             _path_mode: localStorage.getItem('toxik_cfg_path_mode') || 'full_path',
-            _path_prefix: localStorage.getItem('toxik_cfg_path_prefix') || ''
+            _path_prefix: localStorage.getItem('toxik_cfg_path_prefix') || '',
+            _output_prefix_path_mode: localStorage.getItem('toxik_cfg_output_prefix_path_mode') || 'full',
+            _output_prefix_filename_mode: localStorage.getItem('toxik_cfg_output_prefix_filename_mode') || 'workflow_name',
+            _output_prefix_filename_custom: localStorage.getItem('toxik_cfg_output_prefix_filename_custom') || '',
+            _output_prefix_custom_prefix: localStorage.getItem('toxik_cfg_output_prefix_custom_prefix') || '',
+            _output_prefix_custom_suffix: localStorage.getItem('toxik_cfg_output_prefix_custom_suffix') || ''
         };
         return def_fetch('/api/generate', {
             method: 'POST',
