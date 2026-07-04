@@ -56,7 +56,7 @@ export function renderMediaCard(item, viewMode = 'grid') {
     const animThumbs = store.get('animThumbs', true) !== false;
     const cardClass = viewMode === 'montage' ? 'montage-card media-card' : 'card media-card';
     const imgClass = viewMode === 'montage' ? 'montage-img' : 'card-img';
-    const thumbUrl = item.thumb_url || '/thumbs/placeholder.webp';
+    const thumbUrl = item.thumb_url || `/thumbs/${item.id}.webp`;
 
     // Relative sizing booster for montage if aspect ratio is wide/tall or file is prominent
     let sizeBoost = '';
@@ -79,7 +79,7 @@ export function renderMediaCard(item, viewMode = 'grid') {
         ${isVideo ? `
           <div class="video-preview-container ${imgClass}" style="position: relative; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center;">
             <img class="thumb-preview" src="${animThumbs ? thumbUrl : thumbUrl.replace('.webp', '_static.webp')}" alt="${item.filename}" loading="lazy"
-                 onerror="if(this.src.includes('_static.webp')){this.src='${thumbUrl}';}else{this.onerror=null; this.src='/thumbs/placeholder.webp';}"
+                 onerror="if(this.src.includes('_static.webp')){this.src='${thumbUrl}';}else{this.onerror=null; this.src='/thumbs/${item.id}.webp';}"
                  style="width: 100%; height: 100%; object-fit: cover; display: block;" />
             <video class="video-preview" src="/api/media/${item.id}/file" muted loop playsinline preload="none"
                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; background: #000;"></video>

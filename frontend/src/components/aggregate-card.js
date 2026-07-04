@@ -38,7 +38,7 @@ export function renderAggregateCard(item, viewMode = 'grid') {
     const cardClass = viewMode === 'montage' ? 'montage-card media-card card-aggregate' : 'card media-card card-aggregate';
     const imgClass = viewMode === 'montage' ? 'montage-img' : 'card-img';
     const rep = item.representative;
-    const thumbUrl = rep ? (rep.thumb_url || '/thumbs/placeholder.webp') : '';
+    const thumbUrl = rep ? (rep.thumb_url || `/thumbs/${rep.id}.webp`) : '';
 
     return `
       <div class="${cardClass} ${isSelected ? 'selected' : ''}" data-filter="${item.full_filter}" style="position: relative; cursor: pointer;">
