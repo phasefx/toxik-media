@@ -168,6 +168,7 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
 
     files_to_import = []
     seen_paths = set()
+    file_specific_tags = {}
     from backend.config import settings
 
     for p in paths:
@@ -222,6 +223,19 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
                 })
             except Exception:
                 pass
+
+        filename = Path(filepath).name
+        cursor = await db.execute("SELECT tags FROM spawned_outputs WHERE filename = ?", (filename,))
+        spawned = await cursor.fetchone()
+        if spawned:
+            try:
+                extra_tags = json.loads(spawned["tags"])
+                if extra_tags:
+                    file_specific_tags[filepath] = extra_tags
+            except Exception:
+                pass
+            await db.execute("DELETE FROM spawned_outputs WHERE filename = ?", (filename,))
+            await db.commit()
 
         # Check by filepath first
         cursor = await db.execute("SELECT id, file_size, modified_at FROM media WHERE filepath = ?", (filepath,))
@@ -337,6 +351,12 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
         await auto_tag_media(db, all_imported_mids)
         if tags:
             await batch_tag_media(db, all_imported_mids, add_tags=tags)
+
+        # Apply specific tags for ComfyUI spawned outputs
+        for fp, spec_tags in file_specific_tags.items():
+            matching_ids = [mid for path, mid in imported_ids if path == fp]
+            if matching_ids and spec_tags:
+                await batch_tag_media(db, matching_ids, add_tags=spec_tags)
 
     imported_items = []
     seen_ids = set()

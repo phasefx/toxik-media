@@ -61,7 +61,7 @@ export class ViewSortModal {
             const arrow = isSel && opt.id !== 'random' ? (sortChain[idx].dir === 'asc' ? ' ▲' : ' ▼') : '';
             const sub = (isSel && sortChain.length > 1) ? `<sub style="font-size:0.65rem; color: #00ff66; margin-left: 2px;">${idx + 1}</sub>` : '';
             return `
-              <button class="btn sort-radio-btn" data-sort="${opt.id}" title="Click: Set primary sort | Ctrl+Click: Add sub-sort / toggle dir | Shift+Click: Remove sort" 
+              <button class="btn sort-radio-btn" data-sort="${opt.id}" title="Click: Set primary sort | Ctrl+Click: Add sub-sort / toggle dir | Shift+Click: Remove sort"
                       style="height: 48px; font-size: 0.85rem; justify-content: flex-start; padding: 0 16px; background: ${isSel ? 'rgba(0, 240, 255, 0.15)' : 'rgba(255,255,255,0.02)'}; border: 1px solid ${isSel ? 'var(--accent-cyan)' : 'var(--border-color)'}; color: ${isSel ? '#fff' : 'var(--text-secondary)'}; font-weight: ${isSel ? '700' : '500'}; text-align: left; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
                 <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid ${isSel ? 'var(--accent-cyan)' : 'var(--text-muted)'}; background: ${isSel ? 'var(--accent-cyan)' : 'transparent'}; flex-shrink: 0;"></span>
                 <span style="flex: 1; overflow: hidden; text-overflow: ellipsis;">${opt.label}${sub}${arrow}</span>
@@ -73,7 +73,7 @@ export class ViewSortModal {
         if (this.activeTab === 'view') {
             const excludedTypes = new Set((mediaType || '').split(',').map(t => t.trim()).filter(t => t.startsWith('-')).map(t => t.substring(1)));
             const isAll = mediaType === 'all' || (!mediaType || mediaType === '');
-            
+
             tabContent = `
               <div style="padding: 24px; display: flex; flex-direction: column; gap: 24px;">
                 <!-- Layout settings -->
@@ -149,7 +149,7 @@ export class ViewSortModal {
 
         this.container.innerHTML = `
           <div class="modal-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 680px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden;">
-            
+
             <div style="padding: 16px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
               <h3 style="margin: 0; font-size: 1.2rem; color: #fff; display: flex; align-items: center; gap: 8px;">
                 🖥️ View & Display Settings

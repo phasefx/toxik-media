@@ -593,6 +593,58 @@ async def interrupt_comfyui(host: str, port: int) -> bool:
         async with session.post(url) as resp:
             return resp.status == 200
 
+async def get_comfyui_queue(host: str, port: int) -> dict:
+    """GET /queue from ComfyUI."""
+    import aiohttp
+    url = f"http://{host}:{port}/queue"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+    except Exception:
+        pass
+    return {}
+
+async def get_comfyui_history(host: str, port: int) -> dict:
+    """GET /history from ComfyUI."""
+    import aiohttp
+    url = f"http://{host}:{port}/history"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+    except Exception:
+        pass
+    return {}
+
+async def delete_from_comfyui_queue(prompt_id: str, host: str, port: int) -> bool:
+    """POST /queue to delete a prompt from ComfyUI queue."""
+    import aiohttp
+    url = f"http://{host}:{port}/queue"
+    payload = {"delete": [prompt_id]}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload) as resp:
+                return resp.status == 200
+    except Exception:
+        pass
+    return False
+
+async def delete_from_comfyui_history(prompt_id: str, host: str, port: int) -> bool:
+    """POST /history to delete a prompt from ComfyUI history."""
+    import aiohttp
+    url = f"http://{host}:{port}/history"
+    payload = {"delete": [prompt_id]}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload) as resp:
+                return resp.status == 200
+    except Exception:
+        pass
+    return False
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SCANNING & REGISTRY MERGING

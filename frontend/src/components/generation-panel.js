@@ -467,33 +467,47 @@ export class GenerationPanel {
 
         const scrollTop = listEl.scrollTop;
 
-        const jobsHtml = jobs.length > 0 ? jobs.map(j => `
-          <div class="job-item" data-id="${j.id}" style="padding: 14px 18px; background: rgba(0,0,0,0.35); border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 12px; position: relative; transition: all 0.2s ease;">
+        const jobsHtml = jobs.length > 0 ? jobs.map(j => {
+          const isExt = j.is_external;
+          const bg = isExt ? 'rgba(157, 0, 255, 0.05)' : 'rgba(0,0,0,0.35)';
+          const borderColor = isExt ? 'rgba(157, 0, 255, 0.35)' : 'var(--border-color)';
+          const borderStyle = isExt ? 'dashed' : 'solid';
+          const titleLabel = isExt ? `Prompt #${j.inputs.prompt_number || '?'}` : `Job #${j.id.substring(0, 8)}`;
+
+          return `
+          <div class="job-item ${isExt ? 'external-job' : ''}" data-id="${j.id}"
+               style="padding: 14px 18px; background: ${bg}; border-radius: var(--radius-md); border: 1px ${borderStyle} ${borderColor}; margin-bottom: 12px; position: relative; transition: all 0.2s ease;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="font-weight: 700; font-size: 0.85rem; color: #fff;">Job #${j.id.substring(0, 8)}</span>
-                <span style="font-size: 0.75rem; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 12px;">${j.workflow_id}</span>
+              <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span style="font-weight: 700; font-size: 0.85rem; color: ${isExt ? 'var(--accent-purple, #b388ff)' : '#fff'}; display: flex; align-items: center; gap: 4px;">
+                  ${isExt ? '🔌 ' : ''}${titleLabel}
+                </span>
+                <span style="font-size: 0.75rem; color: var(--text-secondary); background: ${isExt ? 'rgba(157, 0, 255, 0.15)' : 'rgba(255,255,255,0.06)'}; padding: 2px 8px; border-radius: 12px;">
+                  ${isExt ? 'External ComfyUI Job' : j.workflow_id}
+                </span>
+                ${isExt && j.inputs.client_id ? `<span style="font-size: 0.7rem; color: var(--text-muted);">Client: ${j.inputs.client_id}</span>` : ''}
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 <span class="badge" style="background: ${j.status === 'completed' ? '#00c853' : j.status === 'running' ? 'var(--accent-cyan)' : j.status === 'error' ? '#ff5252' : j.status === 'canceled' || j.status === 'cancelled' ? '#9e9e9e' : '#ff9100'}; color: #000; font-weight: 700;">
                   ${j.status.toUpperCase()}
                 </span>
-                <button class="btn-inspect-json" data-id="${j.id}" title="Inspect modified workflow JSON" style="height: 24px; padding: 0 8px; font-size: 0.75rem; background: rgba(0, 240, 255, 0.15); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 4px; cursor: pointer; font-weight: 700; font-family: monospace;">{}</button>
+                <button class="btn-inspect-json" data-id="${j.id}" title="Inspect workflow JSON" style="height: 24px; padding: 0 8px; font-size: 0.75rem; background: rgba(0, 240, 255, 0.15); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 4px; cursor: pointer; font-weight: 700; font-family: monospace;">{}</button>
                 ${(j.status === 'queued' || j.status === 'running') ? `
-                  <button class="btn-cancel-job" data-id="${j.id}" title="Cancel job" style="height: 24px; padding: 0 8px; font-size: 0.75rem; background: rgba(255, 82, 82, 0.2); border: 1px solid #ff5252; color: #ff5252; border-radius: 4px; cursor: pointer; font-weight: 600;">🛑 Cancel</button>
+                  <button class="btn-cancel-job" data-id="${j.id}" ${isExt ? 'data-external="true"' : ''} title="Cancel job" style="height: 24px; padding: 0 8px; font-size: 0.75rem; background: rgba(255, 82, 82, 0.2); border: 1px solid #ff5252; color: #ff5252; border-radius: 4px; cursor: pointer; font-weight: 600;">🛑 Cancel</button>
                 ` : `
-                  <button class="btn-delete-job" data-id="${j.id}" title="Remove job from history" style="height: 24px; padding: 0 8px; font-size: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border-color); color: #ccc; border-radius: 4px; cursor: pointer;">✕</button>
+                  <button class="btn-delete-job" data-id="${j.id}" ${isExt ? 'data-external="true"' : ''} title="Remove job" style="height: 24px; padding: 0 8px; font-size: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border-color); color: #ccc; border-radius: 4px; cursor: pointer;">✕</button>
                 `}
               </div>
             </div>
             ${j.status === 'running' ? `
               <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 8px;">
-                <div style="width: ${Math.round(j.progress * 100)}%; height: 100%; background: var(--accent-gradient); transition: width 0.3s ease;"></div>
+                <div style="width: ${Math.round(j.progress * 100)}%; height: 100%; background: ${isExt ? 'var(--accent-purple, #b388ff)' : 'var(--accent-gradient)'}; transition: width 0.3s ease;"></div>
               </div>
             ` : ''}
             ${j.error ? `<div class="selectable-error" style="color: #ff5252; font-size: 0.8rem; margin-top: 8px; word-break: break-all; background: rgba(255,82,82,0.1); padding: 8px 12px; border-radius: 4px; border-left: 3px solid #ff5252; user-select: text !important; -webkit-user-select: text !important; cursor: text;" title="Click and drag to highlight/copy error">${j.error}</div>` : ''}
           </div>
-        `).join('') : '<div style="font-size: 0.9rem; color: var(--text-muted); text-align: center; padding: 40px;">Queue is empty.</div>';
+          `;
+        }).join('') : '<div style="font-size: 0.9rem; color: var(--text-muted); text-align: center; padding: 40px;">Queue is empty.</div>';
 
         listEl.innerHTML = jobsHtml;
         listEl.scrollTop = scrollTop;
@@ -505,11 +519,20 @@ export class GenerationPanel {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const jid = btn.getAttribute('data-id');
+                const isExt = btn.getAttribute('data-external') === 'true';
+
+                const msg = isExt
+                    ? "⚠️ WARNING: This is an external ComfyUI job (started outside of Toxik).\n\nAre you sure you want to cancel / interrupt it?"
+                    : "Cancel this generation job?";
+
+                if (!confirm(msg)) return;
+
                 try {
                     btn.textContent = '⏳';
                     await api.cancelJob(jid);
                     await store.loadWorkflowsAndJobs();
                 } catch (err) {
+                    btn.textContent = '🛑 Cancel';
                     alert(`Cancel failed: ${err.message}`);
                 }
             });
@@ -519,6 +542,12 @@ export class GenerationPanel {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const jid = btn.getAttribute('data-id');
+                const isExt = btn.getAttribute('data-external') === 'true';
+
+                if (isExt) {
+                    if (!confirm("⚠️ Remove this external job from ComfyUI history?")) return;
+                }
+
                 try {
                     await api.deleteJob(jid);
                     await store.loadWorkflowsAndJobs();

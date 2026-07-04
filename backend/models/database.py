@@ -80,6 +80,13 @@ CREATE TABLE IF NOT EXISTS generation_jobs (
     completed_at DATETIME
 );
 
+CREATE TABLE IF NOT EXISTS spawned_outputs (
+    filename    TEXT PRIMARY KEY,
+    job_id      TEXT,
+    tags        TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS settings (
     key         TEXT PRIMARY KEY,
     value       TEXT NOT NULL

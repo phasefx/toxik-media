@@ -110,3 +110,4 @@ class JobItem(BaseModel):
     error: Optional[str] = None
     created_at: Optional[str] = None
     completed_at: Optional[str] = None
+    is_external: bool = False

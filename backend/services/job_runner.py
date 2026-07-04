@@ -218,6 +218,133 @@ async def compute_patched_workflow(workflow_id: str, inputs: dict, seed: Optiona
     patched = apply_patches(wf, all_patches, values)
     return patched
 
+async def is_prompt_in_comfyui_queue(prompt_id: str, host: str, port: int) -> bool:
+    from backend.services.comfyui_service import get_comfyui_queue
+    queue = await get_comfyui_queue(host, port)
+    running = queue.get("queue_running", [])
+    pending = queue.get("queue_pending", [])
+    for item in running:
+        if len(item) > 1 and item[1] == prompt_id:
+            return True
+    for item in pending:
+        if len(item) > 1 and item[1] == prompt_id:
+            return True
+    return False
+
+async def sync_jobs_with_comfyui(db):
+    """Sync the status of active generation jobs with ComfyUI."""
+    cursor = await db.execute(
+        "SELECT id, status, comfyui_id, workflow_id, inputs FROM generation_jobs WHERE status IN ('queued', 'running') AND comfyui_id IS NOT NULL"
+    )
+    rows = await cursor.fetchall()
+    if not rows:
+        return
+
+    from backend.services.comfyui_service import get_comfyui_queue, get_comfyui_history, collect_outputs, download_comfyui_output
+    from backend.services.media_service import import_media
+
+    host = settings.comfyui_host
+    port = settings.comfyui_port
+
+    try:
+        queue = await get_comfyui_queue(host, port)
+        history = await get_comfyui_history(host, port)
+    except Exception as e:
+        logger.warning(f"Could not connect to ComfyUI to sync jobs: {e}")
+        return
+
+    running_ids = {item[1] for item in queue.get("queue_running", []) if len(item) > 1}
+    pending_ids = {item[1] for item in queue.get("queue_pending", []) if len(item) > 1}
+
+    for row in rows:
+        job_id = row["id"]
+        status = row["status"]
+        comfyui_id = row["comfyui_id"]
+
+        # 1. Is it currently in the queue?
+        if comfyui_id in running_ids:
+            if status != "running":
+                await _update_job(db, job_id, status="running")
+            continue
+        elif comfyui_id in pending_ids:
+            if status != "queued":
+                await _update_job(db, job_id, status="queued")
+            continue
+
+        # 2. Is it in history?
+        if comfyui_id in history:
+            entry = history[comfyui_id]
+            h_status = entry.get("status", {}).get("status_str", "unknown")
+            if h_status == "success":
+                try:
+                    workflow_id = row["workflow_id"]
+                    output_ext = ""
+                    workflow_path = _find_workflow_path(workflow_id)
+                    if workflow_path:
+                        from backend.services.comfyui_service import discover_workflow, assemble
+                        wf = discover_workflow(workflow_id, workflow_path)
+                        recipe = assemble(workflow_id, wf)
+                        output_ext = recipe.output_ext
+
+                    generated = collect_outputs(entry, output_ext)
+                    all_output_ids = []
+                    if generated:
+                        output_dir = settings.comfyui_output_dir
+                        output_dir.mkdir(parents=True, exist_ok=True)
+                        downloaded_paths = []
+                        for filename in generated:
+                            try:
+                                data = await download_comfyui_output(filename, host, port)
+                                dest = output_dir / filename
+                                dest.write_bytes(data)
+                                downloaded_paths.append(str(dest))
+                            except Exception as e:
+                                logger.warning(f"Sync download failed for {filename}: {e}")
+
+                        if downloaded_paths:
+                            inputs = json.loads(row["inputs"]) if isinstance(row["inputs"], str) else (row["inputs"] or {})
+                            tags = inputs.get("_tags", [])
+                            # Record outputs to spawned_outputs so they can be matched/tagged
+                            for fn in generated:
+                                try:
+                                    await db.execute(
+                                        "INSERT OR REPLACE INTO spawned_outputs (filename, job_id, tags) VALUES (?, ?, ?)",
+                                        (fn, job_id, json.dumps(tags))
+                                    )
+                                except Exception as se:
+                                    logger.warning(f"Failed to record spawned output during sync: {se}")
+                            await db.commit()
+
+                            imported_items = await import_media(db, downloaded_paths, tags=tags)
+                            all_output_ids = [item.id for item in imported_items]
+
+                    await _update_job(
+                        db, job_id,
+                        status="completed",
+                        progress=1.0,
+                        output_ids=all_output_ids,
+                        completed_at=datetime.now().isoformat()
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to sync completed job {job_id}: {e}")
+                    await _update_job(db, job_id, status="error", error=f"Sync error: {e}")
+            else:
+                await _update_job(
+                    db, job_id,
+                    status="error",
+                    error=entry.get("status", {}).get("error", "ComfyUI execution failed"),
+                    completed_at=datetime.now().isoformat()
+                )
+            continue
+
+        # 3. Not in queue AND not in history -> Job was aborted/lost!
+        await _update_job(
+            db, job_id,
+            status="error",
+            error="Job aborted, lost, or cleared in ComfyUI",
+            completed_at=datetime.now().isoformat()
+        )
+
 async def _execute_job(db, job: dict):
     """Execute a single generation job against ComfyUI."""
     from backend.services.comfyui_service import (
@@ -400,6 +527,19 @@ async def _execute_job(db, job: dict):
                 if entry is not None:
                     break
 
+                # Fail early if job has vanished from ComfyUI queue and history
+                in_queue = await is_prompt_in_comfyui_queue(prompt_id, settings.comfyui_host, settings.comfyui_port)
+                if not in_queue:
+                    try:
+                        entry = await poll_comfyui_history(
+                            prompt_id, settings.comfyui_host, settings.comfyui_port
+                        )
+                    except RuntimeError as e:
+                        raise RuntimeError(f"ComfyUI error on iteration {iteration+1}: {e}")
+                    if entry is not None:
+                        break
+                    raise RuntimeError(f"ComfyUI prompt {prompt_id} was aborted, lost, or cleared on the server.")
+
                 base_progress = completed / total_iterations
                 poll_progress = min(poll / 100, 0.9)
                 await _update_job(
@@ -413,6 +553,17 @@ async def _execute_job(db, job: dict):
             generated = collect_outputs(entry, recipe.output_ext)
 
             if generated:
+                # Track spawned outputs to apply tags during subsequent/asynchronous ingestion
+                for filename in generated:
+                    try:
+                        await db.execute(
+                            "INSERT OR REPLACE INTO spawned_outputs (filename, job_id, tags) VALUES (?, ?, ?)",
+                            (filename, job_id, json.dumps(tags))
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to record spawned output {filename} in DB: {e}")
+                await db.commit()
+
                 downloaded_paths = []
                 for filename in generated:
                     try:

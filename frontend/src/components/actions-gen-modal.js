@@ -37,7 +37,7 @@ export class ActionsGenModal {
 
         this.container.innerHTML = `
           <div class="modal-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 680px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden;">
-            
+
             <!-- Header -->
             <div style="padding: 16px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
               <h3 style="margin: 0; font-size: 1.2rem; color: #fff; display: flex; align-items: center; gap: 8px;">
@@ -48,10 +48,10 @@ export class ActionsGenModal {
 
             <!-- Content Area -->
             <div style="padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; background: rgba(0,0,0,0.1);">
-              
+
               <!-- Grid of Actions -->
               <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
-                
+
                 <!-- Action 1: Import Media -->
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                   <div style="flex: 1;">

@@ -43,16 +43,16 @@ export class BrandingModal {
             if (!hash || hash === '—' || hash === 'unknown') {
                 return `<code style="color: var(--text-muted); background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${hash || '—'}</code>`;
             }
-            return `<a href="https://github.com/phasefx/toxik-media/commit/${hash}" target="_blank" rel="noopener noreferrer" 
-                       style="color: var(--accent-cyan); background: rgba(0,240,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: monospace; text-decoration: none; border: 1px solid rgba(0,240,255,0.2); transition: all 0.2s;" 
-                       onmouseover="this.style.background='rgba(0,240,255,0.15)'; this.style.borderColor='var(--accent-cyan)';" 
+            return `<a href="https://github.com/phasefx/toxik-media/commit/${hash}" target="_blank" rel="noopener noreferrer"
+                       style="color: var(--accent-cyan); background: rgba(0,240,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: monospace; text-decoration: none; border: 1px solid rgba(0,240,255,0.2); transition: all 0.2s;"
+                       onmouseover="this.style.background='rgba(0,240,255,0.15)'; this.style.borderColor='var(--accent-cyan)';"
                        onmouseout="this.style.background='rgba(0,240,255,0.08)'; this.style.borderColor='rgba(0,240,255,0.2)';"
                        title="View commit ${hash} on GitHub">
                       ${hash}
                     </a>`;
         };
 
-        const hashesHtml = bh !== fh 
+        const hashesHtml = bh !== fh
             ? `Backend TIP: ${renderHashLink(bh)} &nbsp;·&nbsp; Frontend TIP: ${renderHashLink(fh)}`
             : `TIP: ${renderHashLink(bh || fh)}`;
 
@@ -73,15 +73,15 @@ export class BrandingModal {
 
         this.container.innerHTML = `
           <div class="modal-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 850px; max-width: 90vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden;">
-            
+
             <!-- Header Section -->
             <div style="padding: 20px 24px; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.02); position: relative;">
               <button class="btn btn-icon" id="btn-close-branding" title="Close (Escape)" style="position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; font-size: 1.1rem; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;">✕</button>
-              
+
               <h3 style="margin: 0; font-size: 1.5rem; color: #fff; display: flex; align-items: center; gap: 8px;">
                 Toxik <span style="font-size: 1.3rem;">🧪</span>
               </h3>
-              
+
               <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 4px;">
                 <span>${hashesHtml}</span>
                 <span style="color: rgba(255,255,255,0.15);">|</span>
