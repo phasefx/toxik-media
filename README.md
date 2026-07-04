@@ -2,6 +2,8 @@
 
 > A local-first media gallery and generative AI frontend with hierarchical compound tagging, infinite-scroll views, and ComfyUI workflow integration.
 
+Vibe-coded.
+
 ---
 
 ## Highlights & Features
