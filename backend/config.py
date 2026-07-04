@@ -20,13 +20,15 @@ class Settings(BaseSettings):
     workflows_dir: Path = WORKFLOWS_DIR
     max_concurrent_jobs: int = 1
     comfyui_host: str = "localhost"
-    comfyui_port: int = 9988
+    comfyui_port: int = 8188
     comfyui_workflow_dir: Optional[Path] = None
     comfyui_output_dir: Optional[Path] = None
     auto_unload: bool = True
 
     class Config:
         env_prefix = "TOXIK_"
+        env_file = BASE_DIR / ".env"
+        env_file_encoding = "utf-8"
 
     @model_validator(mode="after")
     def setup_paths(self):

@@ -61,6 +61,8 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--catalog", help="Name of SQLite database catalog file inside data directory (e.g. project2.db)")
     parser.add_argument("--thumb-dir", help="Path to thumbnails directory")
     parser.add_argument("--comfyui-output-dir", help="Path to ComfyUI output directory")
+    parser.add_argument("--comfyui-host", default=settings.comfyui_host, help="ComfyUI hostname (default: localhost)")
+    parser.add_argument("--comfyui-port", type=int, default=settings.comfyui_port, help="ComfyUI port (default: 8188)")
     parser.add_argument("--no-reload", action="store_true", help="Disable uvicorn auto-reload")
 
     args, _ = parser.parse_known_args()
@@ -77,6 +79,10 @@ if __name__ == "__main__":
         os.environ["TOXIK_THUMB_DIR"] = str(args.thumb_dir)
     if args.comfyui_output_dir:
         os.environ["TOXIK_COMFYUI_OUTPUT_DIR"] = str(args.comfyui_output_dir)
+    if args.comfyui_host:
+        os.environ["TOXIK_COMFYUI_HOST"] = str(args.comfyui_host)
+    if args.comfyui_port:
+        os.environ["TOXIK_COMFYUI_PORT"] = str(args.comfyui_port)
 
     settings.update_from_args(
         data_dir=args.data_dir,
