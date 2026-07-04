@@ -90,6 +90,7 @@ export class FilterBar {
               <button class="btn btn-primary" id="btn-top-i2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Image-to-Image Generation (Requires Selection)">🖼️ I2I</button>
               <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
               <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
+              <button class="btn" id="btn-open-tag-cloud" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan);" title="Tag Cloud &amp; Taxonomy">☁ Tags</button>
               <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; margin-left: 8px; border-radius: 6px; cursor: pointer;" title="Configuration Settings">⚙️</button>
               ${isConnected ? `
                 <div id="conn-status-indicator" title="Backend Server: Online & Responsive" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #00ff88; margin-left: 4px; cursor: pointer; transition: all 0.2s ease;">
@@ -138,6 +139,14 @@ export class FilterBar {
                 store.setFilter(path);
             });
         });
+
+        // Open Tag Cloud Modal
+        const tagCloudBtn = this.container.querySelector('#btn-open-tag-cloud');
+        if (tagCloudBtn) {
+            tagCloudBtn.addEventListener('click', () => {
+                store.set({ isTagCloudOpen: true });
+            });
+        }
 
         const input = this.container.querySelector('#filter-input');
         const applyBtn = this.container.querySelector('#btn-search-apply');

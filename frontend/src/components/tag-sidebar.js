@@ -238,10 +238,6 @@ export class TagSidebar {
                     <button class="btn" id="btn-copy-selected-bash" title="Copy media paths escaped for Bash (copies selected items, or all displayed if none selected)"
                             style="width: 100%; height: 36px; font-size: 0.8rem; border-color: rgba(0, 255, 102, 0.4); color: #00ff66; background: rgba(0, 255, 102, 0.05); display: flex; align-items: center; justify-content: center; gap: 6px;">
                       📋 Copy Paths (Bash) ${store.get('selectedIds').size > 0 ? `<span class="badge" style="background: #00ff66; color: #000;">${store.get('selectedIds').size}</span>` : ''}
-                    </button>
-                    <button class="btn" id="btn-open-tag-cloud" style="width: 100%; height: 36px; font-size: 0.85rem; border-color: rgba(0, 240, 255, 0.3); color: var(--accent-cyan); background: rgba(0, 240, 255, 0.05);" title="View Tag Cloud for displayed media">
-                      ☁ Tag Cloud Modal
-                    </button>
                   </div>
                 ` : ''}
               </div>
@@ -302,29 +298,6 @@ export class TagSidebar {
                 ${this.expandedSections.has('sort') ? `
                   <div style="padding: 0 16px 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
                     ${sortButtonsHtml}
-                  </div>
-                ` : ''}
-              </div>
-
-              <!-- Section 4: Tag Taxonomy -->
-              <div class="sidebar-section" style="flex-shrink: 0; display: flex; flex-direction: column;">
-                <div class="accordion-header" data-section="taxonomy" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; border-bottom: ${this.expandedSections.has('taxonomy') ? '1px solid var(--border-color)' : 'none'};">
-                  <span style="display: flex; align-items: center; gap: 8px;">
-                    <span>🗂 Tag Taxonomy</span>
-                    <button class="btn btn-icon" id="btn-new-tag" title="Create Tag" style="width: 24px; height: 24px; font-size: 0.9rem;">+</button>
-                  </span>
-                  <span>${this.expandedSections.has('taxonomy') ? '▼' : '▶'}</span>
-                </div>
-                ${this.expandedSections.has('taxonomy') ? `
-                  <div style="padding: 12px;">
-                    <div class="tag-tree-item ${isAllActive ? 'active' : ''}" data-tag=""
-                         style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; background: ${isAllActive ? 'rgba(0, 240, 255, 0.15)' : 'transparent'}; border: 1px solid ${isAllActive ? 'var(--accent-cyan)' : 'transparent'}; margin-bottom: 8px; font-weight: 600; min-height: 38px;">
-                      <span>🌟 All Media</span>
-                      <span class="badge" style="background: ${isAllActive ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.08)'}; color: ${isAllActive ? '#000' : 'var(--text-secondary)'};">
-                        ${store.get('totalLibraryItems') || store.get('totalItems')}
-                      </span>
-                    </div>
-                    ${this.renderTree(tree)}
                   </div>
                 ` : ''}
               </div>
@@ -400,14 +373,6 @@ export class TagSidebar {
                 await store.loadBrowse(true);
             });
         });
-
-        // Open Tag Cloud Modal
-        const cloudBtn = this.container.querySelector('#btn-open-tag-cloud');
-        if (cloudBtn) {
-            cloudBtn.addEventListener('click', () => {
-                store.set({ isTagCloudOpen: true });
-            });
-        }
 
         // Tag Tree Items
         this.container.querySelectorAll('.tag-tree-item').forEach(el => {
