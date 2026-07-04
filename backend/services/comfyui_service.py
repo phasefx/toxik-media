@@ -658,6 +658,8 @@ def merge_with_registry(workflows: List[WorkflowInfo], registry_path: Path) -> L
             wf_type = "V2V"
         elif wf.load_image and wf.save_video:
             wf_type = "I2V"
+        elif wf.save_video and not wf.load_image:
+            wf_type = "T2V"
         elif wf.save_image and not wf.load_image:
             wf_type = "T2I"
         elif wf.load_image and wf.save_image:
