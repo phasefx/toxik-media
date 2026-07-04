@@ -93,6 +93,7 @@ class WorkflowItem(BaseModel):
     tags_auto: List[str] = []
     is_utility: bool = False
     inputs: Optional[List[WorkflowInput]] = None  # backward compat
+    subdir: str = ""
 
 class GenerateRequest(BaseModel):
     workflow_id: str

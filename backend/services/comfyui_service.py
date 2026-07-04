@@ -110,6 +110,7 @@ class WorkflowInfo:
     neg_prompt: Optional[tuple] = None
     form_fields: List[FormField] = field(default_factory=list)
     is_utility: bool = False
+    subdir: str = ""
 
 @dataclass
 class Patch:
@@ -546,19 +547,22 @@ async def interrupt_comfyui(host: str, port: int) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def scan_workflow_dir(workflow_dir: Path) -> List[WorkflowInfo]:
-    """Scan a directory for ComfyUI API-format workflow JSON files."""
+    """Scan a directory recursively for ComfyUI API-format workflow JSON files."""
     workflows = []
     if not workflow_dir or not workflow_dir.exists():
         return workflows
-    for json_file in sorted(workflow_dir.glob("*.json")):
+    for json_file in sorted(workflow_dir.rglob("*.json")):
         if json_file.name == "registry.json":
             continue
-        key = json_file.stem
         try:
+            rel = json_file.relative_to(workflow_dir)
+            key = rel.as_posix()[:-5]  # strip .json, preserving subdirectory slashes
+            subdir = str(Path(*rel.parts[:-1])).replace("\\", "/") if len(rel.parts) > 1 else ""
             wf = discover_workflow(key, json_file)
+            wf.subdir = subdir
             workflows.append(wf)
         except Exception as e:
-            logger.warning(f"Failed to discover workflow {key}: {e}")
+            logger.warning(f"Failed to discover workflow {json_file}: {e}")
     return workflows
 
 def _determine_expects(wf: WorkflowInfo) -> str:
@@ -593,7 +597,7 @@ def merge_with_registry(workflows: List[WorkflowInfo], registry_path: Path) -> L
 
     result = []
     for wf in workflows:
-        reg = registry_map.get(wf.key, {})
+        reg = registry_map.get(wf.key, registry_map.get(wf.key.split("/")[-1], {}))
         if "type" in reg:
             wf_type = reg["type"]
         elif wf.is_utility:
@@ -613,7 +617,7 @@ def merge_with_registry(workflows: List[WorkflowInfo], registry_path: Path) -> L
         else:
             wf_type = "GEN"
 
-        display_name = reg.get("name", wf.key.replace("-", " ").replace("_", " ").title())
+        display_name = reg.get("name", wf.key.split("/")[-1].replace("-", " ").replace("_", " ").title())
 
         form_fields_data = []
         for ff in wf.form_fields:
@@ -640,6 +644,7 @@ def merge_with_registry(workflows: List[WorkflowInfo], registry_path: Path) -> L
             "tags_auto": reg.get("tags_auto", ["AI.Generated"]),
             "is_utility": wf.is_utility,
             "inputs": reg.get("inputs", None),
+            "subdir": getattr(wf, "subdir", ""),
         })
     return result
 

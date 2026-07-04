@@ -141,11 +141,41 @@ export class GenerationPanel {
 
         this.container.style.display = 'block';
 
-        const workflowOptions = displayWorkflows.map(w => `
-          <option value="${w.id}" ${w.id === this.selectedWorkflowId ? 'selected' : ''}>
-            ${w.name} (${w.type})
-          </option>
-        `).join('');
+        let workflowOptions = '';
+        const hasSubdirs = displayWorkflows.some(w => w.subdir || w.id.includes('/'));
+        if (!hasSubdirs) {
+            workflowOptions = displayWorkflows.map(w => `
+              <option value="${w.id}" ${w.id === this.selectedWorkflowId ? 'selected' : ''}>
+                ${w.name} (${w.type})
+              </option>
+            `).join('');
+        } else {
+            const groups = {};
+            displayWorkflows.forEach(w => {
+                let sub = w.subdir || '';
+                if (!sub && w.id.includes('/')) {
+                    const parts = w.id.split('/');
+                    sub = parts.slice(0, -1).join('/');
+                }
+                const gName = sub ? `📁 ${sub.toUpperCase()}` : '📁 ROOT / GENERAL';
+                if (!groups[gName]) groups[gName] = [];
+                groups[gName].push(w);
+            });
+            const gKeys = Object.keys(groups).sort((a, b) => {
+                if (a === '📁 ROOT / GENERAL') return -1;
+                if (b === '📁 ROOT / GENERAL') return 1;
+                return a.localeCompare(b);
+            });
+            workflowOptions = gKeys.map(gName => `
+              <optgroup label="${gName}">
+                ${groups[gName].map(w => `
+                  <option value="${w.id}" ${w.id === this.selectedWorkflowId ? 'selected' : ''}>
+                    ${w.name} (${w.type})
+                  </option>
+                `).join('')}
+              </optgroup>
+            `).join('');
+        }
 
         const utilityButtonsHtml = utilityWorkflows.length > 0 ? utilityWorkflows.map(u => `
           <button class="btn btn-utility-action" data-id="${u.id}" title="Instant run: ${u.name || u.id}" style="height: 32px; padding: 0 12px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; background: rgba(255, 82, 82, 0.15); color: #ff6b6b; border: 1px solid rgba(255, 82, 82, 0.3); border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s ease;">

@@ -86,6 +86,20 @@ def _get_workflow_dirs() -> List[Path]:
         dirs.append(settings.comfyui_workflow_dir)
     return dirs
 
+def _find_workflow_path(workflow_id: str) -> Optional[Path]:
+    """Find a workflow file by id across workflow dirs, checking exact paths and recursive subdirectories."""
+    for search_dir in _get_workflow_dirs():
+        candidate = search_dir / f"{workflow_id}.json"
+        if candidate.exists():
+            return candidate
+        for match in search_dir.rglob(f"{workflow_id}.json"):
+            if match.exists():
+                return match
+        for match in search_dir.rglob("*.json"):
+            if match.stem == workflow_id or match.name == f"{workflow_id}.json":
+                return match
+    return None
+
 async def extract_last_frame(video_path: str, output_dir: Path) -> str:
     """Extract the last frame of a video file to be used as an image input for I2 workflows."""
     import hashlib
@@ -118,12 +132,7 @@ async def compute_patched_workflow(workflow_id: str, inputs: dict, seed: Optiona
     """Compute the runtime patched ComfyUI workflow JSON for a given workflow and inputs."""
     from backend.services.comfyui_service import discover_workflow, assemble, apply_patches, Patch, build_prefix
 
-    workflow_path = None
-    for search_dir in _get_workflow_dirs():
-        candidate = search_dir / f"{workflow_id}.json"
-        if candidate.exists():
-            workflow_path = candidate
-            break
+    workflow_path = _find_workflow_path(workflow_id)
 
     if not workflow_path:
         raise FileNotFoundError(f"Workflow '{workflow_id}' not found in any workflow directory.")
@@ -214,12 +223,7 @@ async def _execute_job(db, job: dict):
     try:
         await _update_job(db, job_id, status="running", progress=0.0)
 
-        workflow_path = None
-        for search_dir in _get_workflow_dirs():
-            candidate = search_dir / f"{workflow_id}.json"
-            if candidate.exists():
-                workflow_path = candidate
-                break
+        workflow_path = _find_workflow_path(workflow_id)
 
         if not workflow_path:
             raise FileNotFoundError(f"Workflow '{workflow_id}' not found in any workflow directory.")
@@ -459,9 +463,8 @@ async def run_unload_all() -> Optional[str]:
     from backend.services.comfyui_service import discover_workflow, submit_to_comfyui
     import copy
 
-    for search_dir in _get_workflow_dirs():
-        candidate = search_dir / "unload_all.json"
-        if candidate.exists():
+    candidate = _find_workflow_path("unload_all")
+    if candidate and candidate.exists():
             try:
                 wf = discover_workflow("unload_all", candidate)
                 patched = copy.deepcopy(wf.nodes)
