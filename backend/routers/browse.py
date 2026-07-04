@@ -16,7 +16,7 @@ async def browse(
     sort_by: str = Query("creation_date", description="Sort by field"),
     sort_dir: str = Query("desc", description="Sort direction: asc or desc"),
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000000),
     threshold: int = Query(1, ge=0, description="Aggregate card threshold"),
     db: aiosqlite.Connection = Depends(get_db)
 ):

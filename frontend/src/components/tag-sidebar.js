@@ -208,9 +208,10 @@ export class TagSidebar {
                 </div>
                 ${this.expandedSections.has('actions') ? `
                   <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 8px;">
-                    <div style="display: flex; gap: 8px;">
-                      <button class="btn" id="btn-import" title="Import Media" style="flex: 1; height: 36px; font-size: 0.8rem;">📥 Import</button>
-                      <button class="btn" id="btn-reingest-displayed" title="Re-Ingest Displayed Media" style="flex: 1; height: 36px; font-size: 0.8rem;">🔄 Re-Ingest</button>
+                    <div style="display: flex; gap: 6px;">
+                      <button class="btn" id="btn-import" title="Import Media" style="flex: 1; height: 36px; font-size: 0.75rem; padding: 0 4px;">📥 Import</button>
+                      <button class="btn" id="btn-reingest-displayed" title="Re-Ingest Displayed Media" style="flex: 1; height: 36px; font-size: 0.75rem; padding: 0 4px;">🔄 Re-Ingest</button>
+                      <button class="btn" id="btn-fetch-all" title="Fetch All Matching Media Files" style="flex: 1; height: 36px; font-size: 0.75rem; padding: 0 4px; border-color: rgba(255, 204, 0, 0.4); color: #ffcc00; background: rgba(255, 204, 0, 0.05);">⚡ Fetch All</button>
                     </div>
                     <button class="btn" id="btn-copy-selected-bash" title="Copy media paths escaped for Bash (copies selected items, or all displayed if none selected)"
                             style="width: 100%; height: 36px; font-size: 0.8rem; border-color: rgba(0, 255, 102, 0.4); color: #00ff66; background: rgba(0, 255, 102, 0.05); display: flex; align-items: center; justify-content: center; gap: 6px;">
@@ -580,6 +581,20 @@ export class TagSidebar {
                 } finally {
                     reingestBtn.textContent = '🔄 Re-Ingest';
                     reingestBtn.disabled = false;
+                }
+            });
+        }
+
+        const fetchAllBtn = this.container.querySelector('#btn-fetch-all');
+        if (fetchAllBtn) {
+            fetchAllBtn.addEventListener('click', async () => {
+                try {
+                    fetchAllBtn.textContent = '⏳ Fetching...';
+                    fetchAllBtn.disabled = true;
+                    await store.fetchAll();
+                } finally {
+                    fetchAllBtn.textContent = '⚡ Fetch All';
+                    fetchAllBtn.disabled = false;
                 }
             });
         }

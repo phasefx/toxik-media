@@ -167,6 +167,46 @@ class Store extends EventTarget {
         await this.loadBrowse(false);
     }
 
+    async fetchAll() {
+        if (this.state.isLoading) return;
+        const total = this.state.totalItems || 0;
+        const currentLen = (this.state.results || []).length;
+        if (!this.state.hasMore && currentLen >= total) return;
+
+        if (total > 500) {
+            if (!confirm(`You are about to fetch and render all ${total} items at once. Rendering a large number of media files may slow down or freeze your browser. Are you sure you want to proceed?`)) {
+                return;
+            }
+        }
+
+        this.set({ isLoading: true });
+        try {
+            const res = await api.browse({
+                filter: this.getEffectiveFilter(),
+                view: this.state.viewMode,
+                page: 1,
+                limit: 100000,
+                threshold: this.state.threshold,
+                mediaType: this.state.mediaType,
+                sortBy: this.state.sortChain ? this.state.sortChain.map(s => s.id).join(',') : (this.state.sortBy || 'creation_date'),
+                sortDir: this.state.sortChain ? this.state.sortChain.map(s => s.dir).join(',') : (this.state.sortDir || 'desc')
+            });
+
+            const sortedResults = this.sortResults(res.results || []);
+            this.set({
+                results: sortedResults,
+                page: 1,
+                totalItems: res.total_items,
+                totalLibraryItems: res.total_library_items !== undefined ? res.total_library_items : this.state.totalLibraryItems,
+                hasMore: false,
+                isLoading: false
+            });
+        } catch (e) {
+            console.error('Failed to fetch all results:', e);
+            this.set({ isLoading: false });
+        }
+    }
+
     sortResults(results) {
         if (!results || !results.length) return results;
         const chain = this.state.sortChain || [{ id: this.state.sortBy || 'creation_date', dir: this.state.sortDir || 'desc' }];
