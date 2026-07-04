@@ -441,6 +441,59 @@ export class DetailModal {
                   ` : ''}
                 </div>
 
+                <!-- Section 6: Emulation -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                  <div class="accordion-header" data-section="emu" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                    <span>🎮 Emulation</span>
+                    <span>${this.expandedSections.has('emu') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('emu') ? `
+                    <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                      <div id="emu-info" style="font-size: 0.8rem; color: var(--text-secondary); padding: 8px 0;">
+                        ${this._isRom(item) ? `ROM detected (${this._romSystem(item)}). In-browser emulator coming soon.` : 'Not a ROM file.'}
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Section 7: Interactive Fiction -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                  <div class="accordion-header" data-section="if" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                    <span>📖 Interactive Fiction</span>
+                    <span>${this.expandedSections.has('if') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('if') ? `
+                    <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                      <div id="if-info" style="font-size: 0.8rem; color: var(--text-secondary); padding: 8px 0;">
+                        ${this._isInteractiveFiction(item) ? `Story detected (${this._ifFormat(item)}). In-browser player coming soon.` : 'Not an interactive fiction file.'}
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Section 8: VR / Stereogram -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                  <div class="accordion-header" data-section="xr" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                    <span>🥽 VR / Stereogram</span>
+                    <span>${this.expandedSections.has('xr') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('xr') ? `
+                    <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                      <div style="font-size: 0.8rem; color: var(--text-secondary); padding: 8px 0;">
+                        ${item.media_type === 'image' ? 'Generate an autostereogram from this image, or view in VR.' : 'VR viewing available for images and video.'}
+                      </div>
+                      ${item.media_type === 'image' ? `
+                        <button class="btn" id="btn-stereogram" style="background: rgba(255, 0, 127, 0.15); border: 1px solid rgba(255, 0, 127, 0.4); color: var(--accent-magenta); height: 36px; font-weight: 600; font-size: 0.8rem;">
+                          👁 Generate Stereogram
+                        </button>
+                      ` : ''}
+                      <button class="btn" id="btn-vr-view" style="background: rgba(157, 0, 255, 0.15); border: 1px solid rgba(157, 0, 255, 0.4); color: var(--accent-purple); height: 36px; font-weight: 600; font-size: 0.8rem;">
+                        🥽 View in VR (coming soon)
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+
               </div>
             </div>
           </div>
@@ -839,6 +892,20 @@ export class DetailModal {
         if (this.expandedSections.has('transcode')) {
             this._loadTranscodeFormats(item);
         }
+
+        const stereoBtn = this.container.querySelector('#btn-stereogram');
+        if (stereoBtn) {
+            stereoBtn.addEventListener('click', () => {
+                alert('Stereogram generation via ComfyUI coming soon.');
+            });
+        }
+
+        const vrBtn = this.container.querySelector('#btn-vr-view');
+        if (vrBtn) {
+            vrBtn.addEventListener('click', () => {
+                alert('VR viewer coming soon — Canvas Mode spatial boards first!');
+            });
+        }
     }
 
     async _loadTranscodeFormats(item) {
@@ -915,5 +982,37 @@ export class DetailModal {
         } catch (err) {
             container.innerHTML = `<div style="font-size: 0.8rem; color: #ff6b6b; padding: 8px 0;">Failed to load formats: ${err.message}</div>`;
         }
+    }
+
+    _isRom(item) {
+        if (!item || !item.filename) return false;
+        const romExts = new Set(['.nes','.fds','.smc','.sfc','.gb','.gbc','.gba','.nds','.n64','.z64','.gen','.md','.smd','.pce','.sms','.gg','.ws','.wsc','.a26','.a78','.lnx','.j64','.ngp','.neo','.col','.int','.vb','.psx','.iso','.cue','.chd']);
+        const ext = item.filename.slice(item.filename.lastIndexOf('.')).toLowerCase();
+        return romExts.has(ext);
+    }
+
+    _romSystem(item) {
+        if (!item || !item.filename) return '';
+        const ext = item.filename.slice(item.filename.lastIndexOf('.')).toLowerCase();
+        const map = { '.nes':'NES','.fds':'FDS','.smc':'SNES','.sfc':'SNES','.gb':'Game Boy','.gbc':'Game Boy Color','.gba':'Game Boy Advance','.gen':'Genesis','.md':'Mega Drive','.n64':'Nintendo 64','.psx':'PlayStation','.nds':'Nintendo DS','.sms':'Master System','.gg':'Game Gear' };
+        return map[ext] || 'Unknown';
+    }
+
+    _isInteractiveFiction(item) {
+        if (!item || !item.filename) return false;
+        const low = item.filename.toLowerCase();
+        if (low.endsWith('.ink.json')) return true;
+        const ifExts = new Set(['.z1','.z2','.z3','.z4','.z5','.z6','.z7','.z8','.zblorb','.blorb','.gblorb','.ulx','.gam','.t3','.ink']);
+        const ext = low.slice(low.lastIndexOf('.'));
+        return ifExts.has(ext);
+    }
+
+    _ifFormat(item) {
+        if (!item || !item.filename) return '';
+        const low = item.filename.toLowerCase();
+        if (low.endsWith('.ink.json')) return 'Ink';
+        const ext = low.slice(low.lastIndexOf('.'));
+        const map = { '.z3':'Z-machine','.z5':'Z-machine','.z8':'Z-machine','.zblorb':'Z-machine','.gblorb':'Glulx','.ulx':'Glulx','.gam':'TADS','.t3':'TADS 3','.ink':'Ink' };
+        return map[ext] || 'Unknown';
     }
 }
