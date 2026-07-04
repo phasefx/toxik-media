@@ -114,10 +114,12 @@ export class FilterBar {
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
                 const current = store.get('isSidebarCollapsed') || false;
-                store.set({ isSidebarCollapsed: !current });
+                const next = !current;
+                try { localStorage.setItem('toxik_sidebar_collapsed', next ? 'true' : 'false'); } catch (e) {}
+                store.set({ isSidebarCollapsed: next });
                 const sidebarEl = document.querySelector('#sidebar');
                 if (sidebarEl) {
-                    if (!current) {
+                    if (next) {
                         sidebarEl.classList.add('collapsed');
                     } else {
                         sidebarEl.classList.remove('collapsed');

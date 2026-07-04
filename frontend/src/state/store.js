@@ -4,8 +4,8 @@ class Store extends EventTarget {
     constructor() {
         super();
         this.state = {
-            viewMode: 'grid', // 'grid' | 'montage' | 'viewport'
-            activeFilter: '', // empty means All
+            viewMode: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_view_mode')) || 'grid',
+            activeFilter: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_active_filter')) || '',
             tags: [],
             results: [],
             page: 1,
@@ -23,9 +23,9 @@ class Store extends EventTarget {
             entryMode: 'ALL',
             workflows: [],
             jobs: [],
-            threshold: 1, // Aggregate card threshold
+            threshold: parseInt((typeof localStorage !== 'undefined' && localStorage.getItem('toxik_threshold')) || '1', 10) || 1,
             multiFilterMode: 'AND',
-            mediaType: 'all', // 'all' | 'image' | 'video'
+            mediaType: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_media_type')) || 'all',
             lastSelectedId: null,
             theme: 'dark',
             sortBy: 'creation_date',
@@ -39,9 +39,10 @@ class Store extends EventTarget {
             })(),
             mediaStretchFit: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_media_stretch_fit') === 'true'),
             isTagCloudOpen: false,
-            isSidebarCollapsed: false,
+            isSidebarCollapsed: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_sidebar_collapsed') === 'true'),
+            hudVisible: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_hud_visible') !== 'false'),
             catalogs: [],
-            activeCatalog: '',
+            activeCatalog: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_active_catalog')) || '',
             isConnected: true,
             orphanMode: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_orphan_mode')) || 'exclude'
         };
@@ -102,16 +103,19 @@ class Store extends EventTarget {
 
     async setFilter(filter) {
         if (filter === 'All') filter = '';
+        try { localStorage.setItem('toxik_active_filter', filter); } catch (e) {}
         this.set({ activeFilter: filter, page: 1, results: [], hasMore: false, selectedIds: new Set(), lastSelectedId: null });
         await this.loadBrowse(true);
     }
 
     async setMediaType(mediaType) {
+        try { localStorage.setItem('toxik_media_type', mediaType); } catch (e) {}
         this.set({ mediaType, page: 1, results: [], hasMore: false, selectedIds: new Set(), lastSelectedId: null });
         await this.loadBrowse(true);
     }
 
     async setViewMode(viewMode) {
+        try { localStorage.setItem('toxik_view_mode', viewMode); } catch (e) {}
         this.set({ viewMode });
         // If switching view mode, trigger a re-render
     }
@@ -320,6 +324,8 @@ class Store extends EventTarget {
         try {
             this.set({ isLoading: true });
             const res = await api.switchCatalog(name);
+            try { localStorage.setItem('toxik_active_catalog', res.active_catalog); } catch (e) {}
+            try { localStorage.setItem('toxik_active_filter', ''); } catch (e) {}
             this.set({
                 activeCatalog: res.active_catalog,
                 activeFilter: '',

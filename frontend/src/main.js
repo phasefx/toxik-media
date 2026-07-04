@@ -86,6 +86,15 @@ class App {
         this.setupInfiniteScroll();
         this.setupGlobalNavigation();
 
+        // Apply sticky UI states on startup
+        if (store.get('isSidebarCollapsed')) {
+            const sidebarEl = document.querySelector('#sidebar');
+            if (sidebarEl) sidebarEl.classList.add('collapsed');
+        }
+        if (store.get('hudVisible') === false) {
+            document.body.classList.add('hud-off');
+        }
+
         // Connect WebSocket for real-time updates
         wsClient.connect();
         wsClient.subscribe((msg) => {

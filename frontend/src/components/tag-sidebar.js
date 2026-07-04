@@ -616,6 +616,7 @@ export class TagSidebar {
             hudBtn.addEventListener('click', () => {
                 const current = store.get('hudVisible', true) !== false;
                 const nextVal = !current;
+                try { localStorage.setItem('toxik_hud_visible', nextVal ? 'true' : 'false'); } catch (e) {}
                 store.set({ hudVisible: nextVal });
                 if (nextVal) {
                     document.body.classList.remove('hud-off');
