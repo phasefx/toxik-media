@@ -18,7 +18,15 @@ logger = logging.getLogger(__name__)
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff"}
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".opus"}
-DOC_EXTS = {".md", ".txt", ".epub", ".pdf", ".html", ".rst"}
+DOC_EXTS = {
+    ".md", ".txt", ".epub", ".pdf", ".html", ".htm", ".rst",
+    ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx",
+    ".css", ".scss", ".less", ".json", ".yaml", ".yml",
+    ".xml", ".sh", ".bash", ".zsh", ".rs", ".go", ".c",
+    ".cpp", ".h", ".hpp", ".java", ".cs", ".sql", ".toml",
+    ".ini", ".php", ".rb", ".swift", ".kt", ".lua", ".cfg",
+    ".conf", ".env", ".log"
+}
 
 def compute_file_hash(filepath: str) -> str:
     hasher = hashlib.sha256()

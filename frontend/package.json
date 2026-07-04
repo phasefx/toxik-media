@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "epubjs": "^0.3.93",
+    "highlight.js": "^11.11.1",
     "marked": "^18.0.5"
   }
 }

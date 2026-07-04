@@ -2,6 +2,8 @@ import { store } from '../state/store.js';
 import { api } from '../api/client.js';
 import { marked } from 'marked';
 import ePub from 'epubjs';
+import hljs from 'highlight.js/lib/common';
+import 'highlight.js/styles/atom-one-dark.css';
 
 export class DetailModal {
     constructor(container) {
@@ -10,9 +12,9 @@ export class DetailModal {
         this.currentRenderedId = null;
         try {
             const saved = localStorage.getItem('toxik_modal_expanded_sections');
-            this.expandedSections = saved ? new Set(JSON.parse(saved)) : new Set(['playlist', 'tags', 'info', 'actions']);
+            this.expandedSections = saved ? new Set(JSON.parse(saved)) : new Set(['view', 'playlist', 'tags', 'info', 'actions']);
         } catch (e) {
-            this.expandedSections = new Set(['playlist', 'tags', 'info', 'actions']);
+            this.expandedSections = new Set(['view', 'playlist', 'tags', 'info', 'actions']);
         }
 
         store.subscribe((state, changed) => {
@@ -212,9 +214,6 @@ export class DetailModal {
 
               <!-- Left / Main: Media Viewer -->
               <div class="modal-media-container" style="flex: 1; background: #000; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; min-width: 0;">
-                <button id="btn-close-modal" style="position: absolute; top: 16px; left: 16px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 1px solid var(--border-color); color: #fff; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
-                <button id="btn-toggle-fs-media" title="Toggle Fullscreen" style="position: absolute; top: 16px; left: 66px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">🖥️</button>
-                <button id="btn-toggle-stretch-media" title="Toggle Stretch to Fit (${store.get('mediaStretchFit') ? 'Cover' : 'Contain'})" style="position: absolute; top: 16px; left: 116px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: ${store.get('mediaStretchFit') ? 'var(--accent-gradient)' : 'rgba(0,0,0,0.6)'}; border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">${store.get('mediaStretchFit') ? '↔️' : '🔲'}</button>
 
                 ${isDoc ? `
                   <div id="doc-viewer-container" style="width: 100%; height: 100%; background: #0f111a; color: #e0e0e0; overflow: hidden; box-sizing: border-box; text-align: left; display: flex; flex-direction: column; position: relative;">
@@ -252,6 +251,29 @@ export class DetailModal {
                       <button id="btn-modal-prev" title="Previous Media (Left/Up Arrow or Mouse Wheel Up)" class="btn" style="width: 28px; height: 28px; padding: 0; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">‹</button>
                       <span style="font-size: 0.75rem; font-weight: 700; color: #fff; padding: 0 4px; min-width: 42px; text-align: center;">${currentIndex + 1} / ${totalCount}</span>
                       <button id="btn-modal-next" title="Next Media (Right/Down Arrow or Mouse Wheel Down)" class="btn" style="width: 28px; height: 28px; padding: 0; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">›</button>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Section 0: View Controls -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0; background: rgba(179, 136, 255, 0.03);">
+                  <div class="accordion-header" data-section="view" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: #b388ff; text-transform: uppercase;">
+                    <span>🖥️ View Controls</span>
+                    <span>${this.expandedSections.has('view') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('view') ? `
+                    <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+                      <button id="btn-close-modal" class="btn" style="width: 100%; height: 36px; background: rgba(255, 82, 82, 0.15); border: 1px solid #ff5252; color: #fff; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px;">
+                        ✕ Close Detail Modal
+                      </button>
+                      <div style="display: flex; gap: 8px;">
+                        <button id="btn-toggle-fs-media" class="btn" title="Toggle Fullscreen" style="flex: 1; height: 36px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; border-radius: 6px;">
+                          🖥️ Fullscreen Mode
+                        </button>
+                        <button id="btn-toggle-stretch-media" class="btn" title="Toggle Stretch to Fit (${store.get('mediaStretchFit') ? 'Cover' : 'Contain'})" style="flex: 1; height: 36px; background: ${store.get('mediaStretchFit') ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.08)'}; border: 1px solid var(--border-color); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; border-radius: 6px;">
+                          ${store.get('mediaStretchFit') ? '↔️ Fit: Cover' : '🔲 Fit: Contain'}
+                        </button>
+                      </div>
                     </div>
                   ` : ''}
                 </div>
@@ -379,9 +401,10 @@ export class DetailModal {
                 } else if (ext === '.epub') {
                     docEl.style.background = '#1a1c23';
                     docEl.innerHTML = `
-                      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: #141720; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; z-index: 5;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: #141720; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; z-index: 5; gap: 12px; flex-wrap: wrap;">
                         <span style="font-weight: 600; color: #fff; font-size: 0.95rem;">📖 ${item.filename}</span>
-                        <div style="display: flex; gap: 8px;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                          <select id="epub-toc" style="display: none; background: #1a1c23; color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; max-width: 240px;"></select>
                           <button id="epub-prev" class="btn" style="padding: 6px 16px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">◀ Prev</button>
                           <button id="epub-next" class="btn" style="padding: 6px 16px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">Next ▶</button>
                         </div>
@@ -395,13 +418,32 @@ export class DetailModal {
                           const rendition = book.renderTo("epub-render-area", {
                               width: "100%",
                               height: "100%",
-                              spread: "always"
+                              spread: "auto",
+                              flow: "paginated"
                           });
                           rendition.display();
+
                           const prevBtn = docEl.querySelector('#epub-prev');
                           const nextBtn = docEl.querySelector('#epub-next');
                           if (prevBtn) prevBtn.onclick = () => rendition.prev();
                           if (nextBtn) nextBtn.onclick = () => rendition.next();
+
+                          book.loaded.navigation.then(nav => {
+                              const tocEl = docEl.querySelector('#epub-toc');
+                              if (tocEl && nav.toc && nav.toc.length > 0) {
+                                  tocEl.innerHTML = `<option value="">📑 Jump to Chapter...</option>` +
+                                      nav.toc.map(t => `<option value="${t.href}">${t.label ? t.label.trim() : t.href}</option>`).join('');
+                                  tocEl.style.display = 'inline-block';
+                                  tocEl.onchange = (e) => {
+                                      if (e.target.value) rendition.display(e.target.value);
+                                  };
+                              }
+                          }).catch(() => {});
+
+                          rendition.on('keyup', (e) => {
+                              if ((e.keyCode || e.which) === 37) rendition.prev();
+                              if ((e.keyCode || e.which) === 39) rendition.next();
+                          });
                       })
                       .catch(e => {
                           docEl.innerHTML = `<div style="color:#ff4444; padding: 40px;">Failed to render EPUB: ${e.message}</div>`;
@@ -415,6 +457,15 @@ export class DetailModal {
                         docEl.style.padding = '40px 60px';
                         docEl.style.background = '#0f111a';
 
+                        const codeExts = [
+                            '.py', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx',
+                            '.css', '.scss', '.less', '.json', '.yaml', '.yml',
+                            '.xml', '.sh', '.bash', '.zsh', '.rs', '.go', '.c',
+                            '.cpp', '.h', '.hpp', '.java', '.cs', '.sql', '.toml',
+                            '.ini', '.php', '.rb', '.swift', '.kt', '.lua', '.cfg',
+                            '.conf', '.env', '.log'
+                        ];
+
                         if (ext === '.md' || ext === '.markdown') {
                             const renderedHtml = marked.parse(text, { breaks: true, gfm: true });
                             docEl.innerHTML = `
@@ -423,6 +474,31 @@ export class DetailModal {
                                   📄 Markdown Document • ${item.filename}
                                 </div>
                                 ${renderedHtml}
+                              </div>
+                            `;
+                        } else if (codeExts.includes(ext) || ext === '.dockerfile' || ext === '.makefile' || !['.rst', '.txt'].includes(ext)) {
+                            const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            const langMap = {
+                                '.py': 'python', '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript',
+                                '.ts': 'typescript', '.tsx': 'typescript', '.jsx': 'javascript',
+                                '.css': 'css', '.scss': 'scss', '.less': 'less', '.json': 'json',
+                                '.yaml': 'yaml', '.yml': 'yaml', '.xml': 'xml', '.sh': 'bash',
+                                '.bash': 'bash', '.zsh': 'bash', '.rs': 'rust', '.go': 'go',
+                                '.c': 'c', '.cpp': 'cpp', '.h': 'c', '.hpp': 'cpp', '.java': 'java',
+                                '.cs': 'csharp', '.sql': 'sql', '.toml': 'ini', '.ini': 'ini',
+                                '.php': 'php', '.rb': 'ruby', '.swift': 'swift', '.kt': 'kotlin',
+                                '.lua': 'lua', '.cfg': 'ini', '.conf': 'ini', '.env': 'bash'
+                            };
+                            const langName = langMap[ext] || ext.slice(1) || 'code';
+                            const langClass = langMap[ext] ? `language-${langMap[ext]}` : '';
+                            const linesCount = text.split('\n').length;
+                            docEl.innerHTML = `
+                              <div style="max-width: 1100px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: 'Inter', system-ui, sans-serif; line-height: 1.6; font-size: 0.95rem;">
+                                <div style="border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 16px; margin-bottom: 24px; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center;">
+                                  <span>💻 Source Code (${langName}) • ${item.filename}</span>
+                                  <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">${linesCount} lines</span>
+                                </div>
+                                <pre style="background: #141720; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto; margin: 0;"><code class="${langClass}" style="font-family: 'Courier New', Courier, monospace; font-size: 0.9rem; line-height: 1.5;">${escaped}</code></pre>
                               </div>
                             `;
                         } else if (ext === '.rst') {
@@ -446,6 +522,10 @@ export class DetailModal {
                               </div>
                             `;
                         }
+
+                        docEl.querySelectorAll('pre code').forEach((block) => {
+                            try { hljs.highlightElement(block); } catch (e) {}
+                        });
                     }).catch(err => {
                         const docEl = this.container.querySelector('#doc-viewer-container');
                         if (docEl) docEl.innerHTML = `<div style="color:#ff4444; padding: 40px;">Failed to load document: ${err.message}</div>`;
