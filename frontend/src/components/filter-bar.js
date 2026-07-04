@@ -21,6 +21,8 @@ export class FilterBar {
         const activeFilter = store.get('activeFilter') || '';
         const viewMode = store.get('viewMode');
         const mediaType = store.get('mediaType') || 'all';
+        let genCollapsed = true;
+        try { genCollapsed = localStorage.getItem('toxik_gen_collapsed') !== 'false'; } catch (e) {}
 
         let breadcrumbHtml = '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">';
         let currentPath = '';
@@ -85,11 +87,16 @@ export class FilterBar {
 
             <!-- Right: Gen Buttons (Right Justified) -->
             <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+              <button class="btn" id="btn-toggle-gen" style="height: 36px; width: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; border-radius: 6px;" title="${genCollapsed ? 'Expand generation buttons' : 'Collapse to single button'}">${genCollapsed ? '<' : '>'}</button>
+              ${genCollapsed ? `
+              <button class="btn btn-primary" id="btn-top-gen" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-gradient); border: none;" title="AI Generation">🎨 Generate</button>
+              ` : `
               <button class="btn btn-primary" id="btn-top-t2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Text-to-Image Generation">🎨 T2I</button>
               <button class="btn btn-primary" id="btn-top-t2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Text-to-Video Generation">🎬 T2V</button>
               <button class="btn btn-primary" id="btn-top-i2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Image-to-Image Generation (Requires Selection)">🖼️ I2I</button>
               <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
               <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
+              `}
               <button class="btn" id="btn-open-tag-cloud" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan);" title="Tag Cloud &amp; Taxonomy">☁ Tags</button>
               <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; margin-left: 8px; border-radius: 6px; cursor: pointer;" title="Configuration Settings">⚙️</button>
               ${isConnected ? `
@@ -171,6 +178,26 @@ export class FilterBar {
                 });
             }
         });
+
+        // Gen collapse toggle
+        const toggleGen = this.container.querySelector('#btn-toggle-gen');
+        if (toggleGen) {
+            toggleGen.addEventListener('click', () => {
+                const current = localStorage.getItem('toxik_gen_collapsed') === 'true';
+                try { localStorage.setItem('toxik_gen_collapsed', current ? 'false' : 'true'); } catch (e) {}
+                this.render();
+            });
+        }
+
+        // Collapsed Generate button
+        const genBtn = this.container.querySelector('#btn-top-gen');
+        if (genBtn) {
+            genBtn.addEventListener('click', () => {
+                const willOpen = !store.get('isGenerationOpen');
+                const sticky = store.get('stickyTab') || 'form';
+                store.set({ isGenerationOpen: willOpen, generationTab: sticky, entryMode: 'T2I' });
+            });
+        }
 
         const selCat = this.container.querySelector('#select-catalog');
         if (selCat) {
