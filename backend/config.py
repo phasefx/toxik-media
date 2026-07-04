@@ -54,6 +54,10 @@ class Settings(BaseSettings):
 
         self.workflows_dir = Path(self.workflows_dir).resolve()
         self.workflows_dir.mkdir(parents=True, exist_ok=True)
+        if not self.comfyui_workflow_dir or str(self.comfyui_workflow_dir) == '.':
+            self.comfyui_workflow_dir = None
+        else:
+            self.comfyui_workflow_dir = Path(self.comfyui_workflow_dir).resolve()
         return self
 
     def update_from_args(
