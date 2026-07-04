@@ -504,7 +504,7 @@ export class DetailModal {
                         if (ext === '.md' || ext === '.markdown') {
                             const renderedHtml = marked.parse(text, { breaks: true, gfm: true });
                             docEl.innerHTML = `
-                              <div class="markdown-body" style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: 'Inter', system-ui, sans-serif; line-height: 1.7; font-size: 1.05rem;">
+                              <div class="markdown-body" style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.7; font-size: 1.05rem;">
                                 <div style="border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 16px; margin-bottom: 24px; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
                                   📄 Markdown Document • ${item.filename}
                                 </div>
@@ -528,7 +528,7 @@ export class DetailModal {
                             const langClass = langMap[ext] ? `language-${langMap[ext]}` : '';
                             const linesCount = text.split('\n').length;
                             docEl.innerHTML = `
-                              <div style="max-width: 1100px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: 'Inter', system-ui, sans-serif; line-height: 1.6; font-size: 0.95rem;">
+                              <div style="max-width: 1100px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; font-size: 0.95rem;">
                                 <div style="border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 16px; margin-bottom: 24px; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center;">
                                   <span>💻 Source Code (${langName}) • ${item.filename}</span>
                                   <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">${linesCount} lines</span>
@@ -539,7 +539,7 @@ export class DetailModal {
                         } else if (ext === '.rst') {
                             const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             docEl.innerHTML = `
-                              <div style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: 'Inter', system-ui, sans-serif; line-height: 1.7; font-size: 1.05rem;">
+                              <div style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.7; font-size: 1.05rem;">
                                 <div style="border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 16px; margin-bottom: 24px; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
                                   📄 reStructuredText • ${item.filename}
                                 </div>
@@ -549,7 +549,7 @@ export class DetailModal {
                         } else {
                             const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             docEl.innerHTML = `
-                              <div style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: 'Inter', system-ui, sans-serif; line-height: 1.7; font-size: 1rem;">
+                              <div style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.7; font-size: 1rem;">
                                 <div style="border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 16px; margin-bottom: 24px; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
                                   📄 Text Document • ${item.filename}
                                 </div>

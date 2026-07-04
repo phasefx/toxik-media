@@ -1,22 +1,23 @@
 # Toxik 🧪
 
-> A local-first media gallery and generative AI frontend with hierarchical compound tagging, infinite-scroll views, and ComfyUI workflow integration.
+> A self-hosted, local-first media gallery and generative AI frontend featuring hierarchical compound tagging, infinite scroll, and ComfyUI workflow integration.
 
-Vibe-coded.
+Vibe-coded. Media support includes video, images, audio, text, Markdown, PDF, source code, and e-books.
 
 ---
 
 ## Highlights & Features
 
-- **Hierarchical Compound Tagging**: Organize media with dot-delimited tags (e.g., `Person.Jake`, `Movie.Clip.Short`).
+- **Hierarchical Compound Tagging**: Organize media with dot-delimited tags (e.g., `Person.Jake`, `Movie.Clip.Short`). Use a tree view or a tag cloud for navigation.
 - **Aggregated Drill-Down Navigation**: Filtering on `Person` groups all `Jake` items into a single representative aggregate card. Click to drill down into `Person.Jake`.
 - **Wildcard Queries**: Supports prefix matching by default as well as advanced glob filtering (`*.Clip`, `**.Clip`).
-- **3 Infinite-Scroll View Modes**:
+- **Infinite-Scroll View Modes**:
   - **▦ Compact Grid**: Fixed-width square cells with center cropping and hover scale animations.
   - **▧ Montage / Masonry**: JS-based column packing maintaining native aspect ratios without overlapping.
   - **▣ Full Viewport Feed**: Single-item vertical scroll.
+  - **▣ Simple List**: Single-item vertical scroll.
 - **Media Type Toggles**: Instantly switch between broad media types across all view modes and aggregate group counts.
-- **AI Generative Hub**: Integration with ComfyUI workflows (Text-to-Image, Image-to-Video, Video-to-Video) with dynamic input parameter forms and real-time WebSocket progress tracking.
+- **AI Generative Hub**: Integration with ComfyUI workflows (Text-to-Image, Image-to-Video, Video-to-Video, etc.) with dynamic input parameter forms and real-time WebSocket progress tracking.
 - **Batch Tagging & Range Selection**: Multi-select items via checkboxes or click cards while holding **Shift** for fast range selection to batch add, remove, or clear tags.
 - **Smart & Automatic Import Tagging**: During directory or file ingestion, items are automatically tagged with their full directory path as a hierarchical compound tag (e.g., `home.coding.git.toxik.samples.beach`), along with any optional custom tag specified at prompt time.
 - **SHA-256 Deduplication**: Automatically detects duplicate imports across different directories or filenames.
@@ -110,6 +111,14 @@ TOXIK_PORT=8001 TOXIK_FRONTEND_PORT=5174 npm run dev --prefix frontend
 ./import_cli.py /path/to/movies -d ./data-movies -t Movie
 ```
 
+#### Alternative
+Or you could use one instance to switch between multiple catalogs/databases within the GUI.
+
+```bash
+# Ingesting Media into a Specific Catalog
+./import_cli.py /path/to/movies -c movies.db
+```
+
 ---
 
 
@@ -122,12 +131,24 @@ TOXIK_PORT=8001 TOXIK_FRONTEND_PORT=5174 npm run dev --prefix frontend
    - `*.Clip` matches any tag where `Clip` has exactly one parent segment (e.g., `Movie.Clip`, `Genre.Clip`).
    - `**.Clip` matches `Clip` at any depth in the hierarchy.
 3. **Multi-Filter Logic**:
-   - Toggle between **AND** (intersection) and **OR** (union) in the top filter bar.
+   - Set multiple tags as inclusionary and exclusionary filters.
 
 ---
 
-## Canvas Mode 2.0 Prep
+## Privacy Caveat
+
+One installed, we don't pull remote fonts, scripts, 3rd party metadata, etc. However, ComfyUI, itself, is able to reach out to 3rd party hosts depending on your workflows and customizations. And if you're using Windows, Firefox, or Chrome, there is likely telemetry there you should be aware of. And at some point I will want to add a mechanism for pulling cover art for music and ebooks.
+
+## TODO: Canvas Mode 2.0
 Toxik 1.0 includes architectural foundations for persistent spatial boards (Canvas Mode 2.0):
 - Reserved `canvas.*` tag namespace.
 - Transform-based positioning pipeline.
 - Z-index layering preparation.
+
+## TODO: In-browser emulation for retro-gaming.
+
+## TODO: Interactive fiction / text adventure game support.
+
+## TODO: Transcoding.
+
+## TODO: VR support including psuedo-stereograms for 2d media.
