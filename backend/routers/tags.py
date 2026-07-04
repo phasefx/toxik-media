@@ -15,6 +15,7 @@ async def list_tags(db: aiosqlite.Connection = Depends(get_db)):
 @router.post("", response_model=Dict[str, Any])
 async def create_tag(request: TagCreate, db: aiosqlite.Connection = Depends(get_db)):
     tag_id = await ensure_tag_exists(db, request.full_tag)
+    await db.commit()
     return {"status": "success", "tag_id": tag_id, "full_tag": request.full_tag}
 
 @router.put("/{tag_id}", response_model=Dict[str, Any])

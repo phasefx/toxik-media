@@ -105,6 +105,7 @@ async def get_db() -> aiosqlite.Connection:
     await db.execute("PRAGMA journal_mode = WAL;")
     await db.execute("PRAGMA synchronous = NORMAL;")
     await db.execute("PRAGMA foreign_keys = ON;")
+    await db.execute("PRAGMA busy_timeout = 30000;")
     db.row_factory = aiosqlite.Row
     return db
 
@@ -163,6 +164,7 @@ async def init_db():
         await db.execute("PRAGMA journal_mode = WAL;")
         await db.execute("PRAGMA synchronous = NORMAL;")
         await db.execute("PRAGMA foreign_keys = ON;")
+        await db.execute("PRAGMA busy_timeout = 30000;")
         for statement in CREATE_TABLES_SQL.split(";"):
             if statement.strip():
                 await db.execute(statement)

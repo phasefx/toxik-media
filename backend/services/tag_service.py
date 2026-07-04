@@ -84,7 +84,6 @@ async def ensure_tag_exists(db: aiosqlite.Connection, full_tag: str) -> int:
                     "INSERT INTO tag_segments (tag_id, segment, position) VALUES (?, ?, ?)",
                     (last_id, s, pos)
                 )
-    await db.commit()
     return last_id
 
 async def get_all_tags(db: aiosqlite.Connection) -> List[TagItem]:

@@ -69,18 +69,36 @@ export class TagCloudModal {
         if (entries.length === 0) {
             cloudHtml = '<div style="color: var(--text-muted); padding: 32px; text-align: center;">No tags found on displayed media.</div>';
         } else {
-            cloudHtml = '<div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; padding: 24px; max-height: 65vh; overflow-y: auto;">';
+            cloudHtml = '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-content: flex-start; align-items: center; padding: 24px; max-height: 65vh; overflow-y: auto;">';
             entries.forEach(([tagStr, count], idx) => {
                 const ratio = maxCount === minCount ? 0.5 : (count - minCount) / (maxCount - minCount);
                 const fontSize = (0.85 + ratio * 1.3).toFixed(2); // 0.85rem to 2.15rem
                 const color = colors[idx % colors.length];
                 const bg = color + '1a'; // 10% opacity
 
+                const segments = tagStr.split('.');
+                let revealedCount = Math.min(2, segments.length);
+                try {
+                    const saved = localStorage.getItem('toxik_tag_cloud_seg_' + tagStr);
+                    if (saved !== null) {
+                        revealedCount = Math.min(segments.length, Math.max(1, parseInt(saved, 10) || revealedCount));
+                    }
+                } catch (e) {}
+
+                const displayText = segments.slice(-revealedCount).join('.');
+                const controlsHtml = segments.length > 1 ? `
+                  <span class="cloud-tag-controls" style="display: inline-flex; gap: 2px; align-items: center; margin-right: 2px;">
+                    <button class="btn-cloud-seg-expand" data-tag="${tagStr}" data-seg="${revealedCount}" title="Reveal more segments to the left" style="width: 18px; height: 18px; padding: 0; border: 1px solid ${color + '66'}; background: rgba(0,0,0,0.4); color: ${color}; border-radius: 50%; font-size: 0.65rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;">‹</button>
+                    <button class="btn-cloud-seg-shrink" data-tag="${tagStr}" data-seg="${revealedCount}" title="Reveal fewer segments" style="width: 18px; height: 18px; padding: 0; border: 1px solid ${color + '66'}; background: rgba(0,0,0,0.4); color: ${color}; border-radius: 50%; font-size: 0.65rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;">›</button>
+                  </span>
+                ` : '';
+
                 cloudHtml += `
                   <span class="cloud-tag-item" data-tag="${tagStr}"
-                        style="font-size: ${fontSize}rem; color: ${color}; background: ${bg}; border: 1px solid ${color + '4d'}; padding: 6px 14px; border-radius: var(--radius-full); cursor: pointer; transition: all 0.2s ease; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;"
+                        style="font-size: ${fontSize}rem; color: ${color}; background: ${bg}; border: 1px solid ${color + '4d'}; padding: 4px 12px; border-radius: var(--radius-full); cursor: pointer; transition: all 0.2s ease; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; line-height: 1.3;"
                         title="Filter by ${tagStr} (${count} item${count !== 1 ? 's' : ''})">
-                    <span>${tagStr}</span>
+                    ${controlsHtml}
+                    <span>${displayText}</span>
                     <span style="font-size: 0.7rem; opacity: 0.8; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 10px;">${count}</span>
                   </span>
                 `;
@@ -102,7 +120,7 @@ export class TagCloudModal {
             </div>
 
             <div style="padding: 12px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2);">
-              <span style="font-size: 0.8rem; color: var(--text-muted);">💡 Click any tag pill to instantly filter the view.</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">💡 Click any tag pill to instantly filter the view. Use ‹ and › to reveal compound segments.</span>
               <button class="btn" id="btn-cloud-done" style="height: 34px; padding: 0 16px;">Close</button>
             </div>
           </div>
@@ -123,6 +141,29 @@ export class TagCloudModal {
             if (e.target === this.container) {
                 close();
             }
+        });
+
+        this.container.querySelectorAll('.btn-cloud-seg-expand').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tag = btn.getAttribute('data-tag');
+                const current = parseInt(btn.getAttribute('data-seg'), 10) || 2;
+                const max = tag.split('.').length;
+                const next = Math.min(max, current + 1);
+                try { localStorage.setItem('toxik_tag_cloud_seg_' + tag, next); } catch(err) {}
+                this.render();
+            });
+        });
+
+        this.container.querySelectorAll('.btn-cloud-seg-shrink').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tag = btn.getAttribute('data-tag');
+                const current = parseInt(btn.getAttribute('data-seg'), 10) || 2;
+                const next = Math.max(1, current - 1);
+                try { localStorage.setItem('toxik_tag_cloud_seg_' + tag, next); } catch(err) {}
+                this.render();
+            });
         });
 
         this.container.querySelectorAll('.cloud-tag-item').forEach(el => {

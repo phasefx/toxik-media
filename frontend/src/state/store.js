@@ -311,9 +311,16 @@ class Store extends EventTarget {
         try {
             const catalogs = await api.getCatalogs();
             const active = catalogs.find(c => c.active);
+            const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_active_catalog'));
+            const currentName = active ? active.name : (catalogs[0] ? catalogs[0].name : 'toxik.db');
+
+            if (saved && catalogs.some(c => c.name === saved) && saved !== currentName) {
+                return this.switchCatalog(saved);
+            }
+
             this.set({
                 catalogs,
-                activeCatalog: active ? active.name : (catalogs[0] ? catalogs[0].name : 'toxik.db')
+                activeCatalog: currentName
             });
         } catch (e) {
             console.error('Failed to load catalogs:', e);

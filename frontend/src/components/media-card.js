@@ -95,7 +95,7 @@ export function renderMediaCard(item, viewMode = 'grid') {
           </div>
         ` : `
           <img class="${imgClass}" src="${thumbUrl}" alt="${item.filename}" loading="lazy"
-               onerror="console.warn('[Toxik Thumb] Failed to load thumbnail for ID ${item.id}:', this.src); this.onerror=null; this.src='/thumbs/placeholder.webp';" />
+               onerror="this.onerror=null; this.src='/thumbs/placeholder.webp';" />
         `}
 
         <!-- Selection Checkbox / Indicator -->

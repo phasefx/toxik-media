@@ -330,6 +330,9 @@ class App {
 
             // 1. If Modal is open: step adjacent media in modal
             if (activeModalItem) {
+                if (activeModalItem.media_type === 'doc') {
+                    return; // Explicitly disable arrow-key navigation for documents
+                }
                 if (['ArrowRight', 'ArrowDown'].includes(e.key)) {
                     e.preventDefault();
                     this.detailModal.stepAdjacentMedia(1);

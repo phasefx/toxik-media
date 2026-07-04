@@ -10,8 +10,10 @@ export class DetailModal {
         this.container = container;
         this.modalTimer = null;
         this.currentRenderedId = null;
+        this.currentEpubRendition = null;
+        this.currentEpubBook = null;
         try {
-            const saved = localStorage.getItem('toxik_modal_expanded_sections');
+            const saved = localStorage.getItem('toxik_modal_expanded_sections_default');
             this.expandedSections = saved ? new Set(JSON.parse(saved)) : new Set(['view', 'playlist', 'tags', 'info', 'actions']);
         } catch (e) {
             this.expandedSections = new Set(['view', 'playlist', 'tags', 'info', 'actions']);
@@ -174,10 +176,33 @@ export class DetailModal {
     }
 
     render(item) {
+        if (this.currentEpubRendition) {
+            try { this.currentEpubRendition.destroy(); } catch (e) {}
+            this.currentEpubRendition = null;
+        }
+        if (this.currentEpubBook) {
+            try { this.currentEpubBook.destroy(); } catch (e) {}
+            this.currentEpubBook = null;
+        }
+
         if (!item) {
             this.container.innerHTML = '';
             this.container.style.display = 'none';
             return;
+        }
+
+        const mediaType = item.media_type || 'default';
+        try {
+            const saved = localStorage.getItem('toxik_modal_expanded_sections_' + mediaType);
+            if (saved) {
+                this.expandedSections = new Set(JSON.parse(saved));
+            } else if (mediaType === 'doc') {
+                this.expandedSections = new Set(['view', 'tags', 'info', 'actions']);
+            } else {
+                this.expandedSections = new Set(['view', 'playlist', 'tags', 'info', 'actions']);
+            }
+        } catch (e) {
+            this.expandedSections = new Set(['view', 'playlist', 'tags', 'info', 'actions']);
         }
 
         this.container.style.display = 'flex';
@@ -373,6 +398,14 @@ export class DetailModal {
                           🎥 V2V
                         </button>
                       </div>
+                      <div style="display: flex; gap: 8px;">
+                        <a href="/api/media/${item.id}/file" download="${item.filename}" class="btn" style="flex: 1; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); color: var(--accent-cyan); height: 38px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border-radius: 6px; font-size: 0.85rem;">
+                          ⬇️ Download
+                        </a>
+                        <a href="/api/media/${item.id}/file" target="_blank" rel="noopener noreferrer" class="btn" style="flex: 1; background: rgba(179, 136, 255, 0.15); border: 1px solid rgba(179, 136, 255, 0.4); color: #b388ff; height: 38px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border-radius: 6px; font-size: 0.85rem;">
+                          ↗️ Open in Tab
+                        </a>
+                      </div>
                       <button class="btn" id="btn-upload-comfyui" style="width: 100%; background: rgba(0, 255, 102, 0.15); border-color: rgba(0, 255, 102, 0.4); color: #00ff66; height: 38px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
                         ☁️ Upload to ComfyUI
                       </button>
@@ -415,12 +448,14 @@ export class DetailModal {
                       .then(res => res.arrayBuffer())
                       .then(buffer => {
                           const book = ePub(buffer);
+                          this.currentEpubBook = book;
                           const rendition = book.renderTo("epub-render-area", {
                               width: "100%",
                               height: "100%",
                               spread: "auto",
                               flow: "paginated"
                           });
+                          this.currentEpubRendition = rendition;
                           rendition.display();
 
                           const prevBtn = docEl.querySelector('#epub-prev');
@@ -718,8 +753,9 @@ export class DetailModal {
                 } else {
                     this.expandedSections.add(sec);
                 }
+                const mediaType = store.get('activeModalItem')?.media_type || 'default';
                 try {
-                    localStorage.setItem('toxik_modal_expanded_sections', JSON.stringify(Array.from(this.expandedSections)));
+                    localStorage.setItem('toxik_modal_expanded_sections_' + mediaType, JSON.stringify(Array.from(this.expandedSections)));
                 } catch (err) {}
                 this.render(item);
             });

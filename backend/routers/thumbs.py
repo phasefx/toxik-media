@@ -155,8 +155,14 @@ async def serve_thumbnail(filename: str, db: aiosqlite.Connection = Depends(get_
         except Exception as e:
             logger.error(f"On-demand thumbnail generation failed for {filename}: {e}")
 
-    # Fallback placeholder if exists
+    # Fallback placeholder
     placeholder = settings.thumb_dir / "placeholder.webp"
     if placeholder.exists():
         return FileResponse(placeholder)
-    return Response(status_code=404)
+
+    placeholder_svg = """<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" fill="#141720">
+      <rect width="300" height="300" fill="#141720"/>
+      <path d="M150 110 C130 110 115 125 115 145 C115 165 130 180 150 180 C170 180 185 165 185 145 C185 125 170 110 150 110 Z" fill="#2a2f42"/>
+      <text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#6c7293">No Preview</text>
+    </svg>"""
+    return Response(content=placeholder_svg, media_type="image/svg+xml")
