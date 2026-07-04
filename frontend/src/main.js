@@ -117,6 +117,19 @@ class App {
             store.loadWorkflowsAndJobs(),
             store.loadCatalogs()
         ]);
+
+        // Auto-import configured watch directories on page load / reload
+        try {
+            const watchDirsJson = localStorage.getItem('toxik_watch_dirs');
+            if (watchDirsJson) {
+                const watchDirs = JSON.parse(watchDirsJson);
+                if (Array.isArray(watchDirs) && watchDirs.length > 0) {
+                    api.importMedia(watchDirs, []).catch(e => console.warn('Watch dir auto-import failed:', e));
+                }
+            }
+        } catch (e) {
+            console.error('Failed to parse watch directories:', e);
+        }
     }
 
     renderGallery(state) {

@@ -12,6 +12,7 @@ from backend.services.tag_service import ensure_tag_exists
 from backend.routers.websocket import manager
 import logging
 import time
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -192,11 +193,22 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
                 pass
 
         # Check by filepath first
-        cursor = await db.execute("SELECT id FROM media WHERE filepath = ?", (filepath,))
+        cursor = await db.execute("SELECT id, file_size, modified_at FROM media WHERE filepath = ?", (filepath,))
         existing = await cursor.fetchone()
         if existing:
-            imported_ids.append((filepath, existing["id"]))
-            continue
+            try:
+                stat = os.stat(filepath)
+                current_size = stat.st_size
+                current_mtime_iso = datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
+                if current_size == existing["file_size"] and (not existing["modified_at"] or str(existing["modified_at"])[:19] == current_mtime_iso[:19]):
+                    imported_ids.append((filepath, existing["id"]))
+                    continue
+                else:
+                    logger.info(f"[Ingest] File modified on disk (size/mtime mismatch), re-ingesting: {filepath}")
+                    await delete_media_item(db, existing["id"], delete_file=False)
+            except Exception:
+                imported_ids.append((filepath, existing["id"]))
+                continue
 
         # Compute SHA-256 for deduplication
         try:
@@ -205,9 +217,12 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
             logger.error(f"Failed to read file {filepath}: {e}")
             continue
 
-        cursor = await db.execute("SELECT id FROM media WHERE file_hash = ?", (file_hash,))
+        cursor = await db.execute("SELECT id, filepath FROM media WHERE file_hash = ?", (file_hash,))
         dup = await cursor.fetchone()
         if dup:
+            if dup["filepath"] == filepath:
+                imported_ids.append((filepath, dup["id"]))
+                continue
             # File already exists under another path or same hash
             imported_ids.append((filepath, dup["id"]))
             continue

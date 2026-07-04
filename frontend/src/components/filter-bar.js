@@ -248,20 +248,36 @@ export class FilterBar {
         const uploadMode = localStorage.getItem('toxik_cfg_upload_mode') || 'no_upload';
         const pathMode = localStorage.getItem('toxik_cfg_path_mode') || 'full_path';
         const pathPrefix = localStorage.getItem('toxik_cfg_path_prefix') || '';
+        let watchDirs = [];
+        try {
+            const parsed = JSON.parse(localStorage.getItem('toxik_watch_dirs') || '[]');
+            if (Array.isArray(parsed)) watchDirs = parsed;
+        } catch (e) {}
 
         const modalEl = document.createElement('div');
         modalEl.id = 'config-modal-backdrop';
         modalEl.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 30px; animation: fadeIn 0.15s ease;';
 
         modalEl.innerHTML = `
-          <div class="glass" style="width: 100%; max-width: 580px; border-radius: var(--radius-lg); background: var(--bg-card); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 0 50px rgba(0,0,0,0.9); overflow: hidden; display: flex; flex-direction: column;">
+          <div class="glass" style="width: 100%; max-width: 640px; border-radius: var(--radius-lg); background: var(--bg-card); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 0 50px rgba(0,0,0,0.9); overflow: hidden; display: flex; flex-direction: column;">
             <div style="padding: 18px 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03);">
               <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                <span style="color: var(--accent-cyan);">⚙️</span> Workflow & Path Configuration
+                <span style="color: var(--accent-cyan);">⚙️</span> Configuration Settings
               </h3>
               <button id="btn-close-config-modal" class="btn btn-icon" style="width: 32px; height: 32px; font-size: 1.1rem; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;">✕</button>
             </div>
-            <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px; max-height: 70vh; overflow-y: auto;">
+
+            <div style="display: flex; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.2);">
+              <button id="cfg-tab-btn-workflow" class="btn" style="flex: 1; height: 44px; font-size: 0.9rem; font-weight: 700; background: transparent; border: none; border-bottom: 2px solid var(--accent-cyan); color: #fff; cursor: pointer; transition: all 0.2s ease;">
+                ⚙️ Workflow & Path
+              </button>
+              <button id="cfg-tab-btn-watch" class="btn" style="flex: 1; height: 44px; font-size: 0.9rem; font-weight: 600; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease;">
+                📁 Watch Directories
+              </button>
+            </div>
+
+            <!-- TAB 1: WORKFLOW & PATH -->
+            <div id="cfg-pane-workflow" style="padding: 24px; display: flex; flex-direction: column; gap: 20px; max-height: 65vh; overflow-y: auto;">
               <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
                 Configure how media files (images, videos, audio) are prepared and inserted into ComfyUI workflows when jobs are submitted. These settings are sticky across sessions.
               </p>
@@ -315,6 +331,19 @@ export class FilterBar {
                 <input type="text" id="cfg-path-prefix-input" class="input" placeholder="e.g. /mnt/comfy/inputs/ (leave empty for none)" value="${pathPrefix}" style="width: 100%; height: 38px; font-size: 0.85rem; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 12px; color: #fff;" />
               </div>
             </div>
+
+            <!-- TAB 2: WATCH DIRECTORIES -->
+            <div id="cfg-pane-watch" style="padding: 24px; display: none; flex-direction: column; gap: 20px; max-height: 65vh; overflow-y: auto;">
+              <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                Directories listed below will be automatically scanned for new or changed media files (including within sub-directories) on hard page loads and reloads.
+              </p>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="cfg-new-watch-dir" class="input" placeholder="Enter absolute directory path (e.g. /home/coding/git/toxik/outputs)" style="flex: 1; height: 38px; font-size: 0.85rem; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 12px; color: #fff;" />
+                <button id="btn-add-watch-dir" class="btn" style="height: 38px; padding: 0 16px; font-weight: 600; background: rgba(0, 240, 255, 0.15); border: 1px solid var(--accent-cyan); border-radius: 6px; color: var(--accent-cyan); cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">+ Add Directory</button>
+              </div>
+              <div id="cfg-watch-dirs-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+
             <div style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; background: rgba(255,255,255,0.02);">
               <button id="btn-config-save" class="btn btn-primary" style="height: 38px; padding: 0 24px; font-weight: 700; background: var(--accent-gradient); border: none; border-radius: 6px; color: #fff; cursor: pointer;">Save Settings</button>
             </div>
@@ -330,6 +359,81 @@ export class FilterBar {
             if (e.target === modalEl) closeModal();
         });
 
+        const tabWorkflowBtn = modalEl.querySelector('#cfg-tab-btn-workflow');
+        const tabWatchBtn = modalEl.querySelector('#cfg-tab-btn-watch');
+        const paneWorkflow = modalEl.querySelector('#cfg-pane-workflow');
+        const paneWatch = modalEl.querySelector('#cfg-pane-watch');
+
+        tabWorkflowBtn.addEventListener('click', () => {
+            tabWorkflowBtn.style.borderBottomColor = 'var(--accent-cyan)';
+            tabWorkflowBtn.style.color = '#fff';
+            tabWorkflowBtn.style.fontWeight = '700';
+            tabWatchBtn.style.borderBottomColor = 'transparent';
+            tabWatchBtn.style.color = 'var(--text-secondary)';
+            tabWatchBtn.style.fontWeight = '600';
+            paneWorkflow.style.display = 'flex';
+            paneWatch.style.display = 'none';
+        });
+
+        tabWatchBtn.addEventListener('click', () => {
+            tabWatchBtn.style.borderBottomColor = 'var(--accent-cyan)';
+            tabWatchBtn.style.color = '#fff';
+            tabWatchBtn.style.fontWeight = '700';
+            tabWorkflowBtn.style.borderBottomColor = 'transparent';
+            tabWorkflowBtn.style.color = 'var(--text-secondary)';
+            tabWorkflowBtn.style.fontWeight = '600';
+            paneWatch.style.display = 'flex';
+            paneWorkflow.style.display = 'none';
+        });
+
+        const renderWatchDirs = () => {
+            const listEl = modalEl.querySelector('#cfg-watch-dirs-list');
+            if (!listEl) return;
+            if (watchDirs.length === 0) {
+                listEl.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.85rem; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px dashed var(--border-color);">No watch directories configured yet. Add one above!</div>`;
+                return;
+            }
+            listEl.innerHTML = watchDirs.map((dir, idx) => `
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 6px; gap: 12px;">
+                <span style="font-size: 0.85rem; color: #fff; font-family: monospace; word-break: break-all;">📁 ${dir}</span>
+                <button class="btn btn-remove-watch-dir" data-idx="${idx}" style="height: 28px; padding: 0 10px; font-size: 0.75rem; background: rgba(255, 82, 82, 0.15); border: 1px solid #ff5252; border-radius: 4px; color: #ff5252; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; gap: 4px;">Remove 🗑️</button>
+              </div>
+            `).join('');
+
+            listEl.querySelectorAll('.btn-remove-watch-dir').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.currentTarget.getAttribute('data-idx'), 10);
+                    if (!isNaN(idx)) {
+                        watchDirs.splice(idx, 1);
+                        renderWatchDirs();
+                    }
+                });
+            });
+        };
+
+        renderWatchDirs();
+
+        const addDirInput = modalEl.querySelector('#cfg-new-watch-dir');
+        const addDirBtn = modalEl.querySelector('#btn-add-watch-dir');
+
+        const addWatchDir = () => {
+            const val = (addDirInput.value || '').trim();
+            if (!val) return;
+            if (!watchDirs.includes(val)) {
+                watchDirs.push(val);
+                renderWatchDirs();
+            }
+            addDirInput.value = '';
+        };
+
+        addDirBtn.addEventListener('click', addWatchDir);
+        addDirInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addWatchDir();
+            }
+        });
+
         modalEl.querySelector('#btn-config-save')?.addEventListener('click', () => {
             const selUpload = modalEl.querySelector('input[name="cfg_upload_mode"]:checked')?.value || 'no_upload';
             const selPath = modalEl.querySelector('input[name="cfg_path_mode"]:checked')?.value || 'full_path';
@@ -338,6 +442,11 @@ export class FilterBar {
             localStorage.setItem('toxik_cfg_upload_mode', selUpload);
             localStorage.setItem('toxik_cfg_path_mode', selPath);
             localStorage.setItem('toxik_cfg_path_prefix', valPrefix);
+            localStorage.setItem('toxik_watch_dirs', JSON.stringify(watchDirs));
+
+            if (watchDirs.length > 0) {
+                api.importMedia(watchDirs, []).catch(e => console.warn('Watch dir import failed:', e));
+            }
 
             closeModal();
         });
