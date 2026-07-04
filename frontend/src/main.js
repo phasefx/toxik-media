@@ -5,7 +5,9 @@ import './styles/viewport.css';
 import './styles/list.css';
 
 import { store } from './state/store.js';
-import { TagSidebar } from './components/tag-sidebar.js';
+import { ViewSortModal } from './components/view-sort-modal.js';
+import { ActionsGenModal } from './components/actions-gen-modal.js';
+import { BrandingModal } from './components/branding-modal.js';
 import { FilterBar } from './components/filter-bar.js';
 import { renderMediaCard, attachMediaCardEvents, updateMediaCardSelections } from './components/media-card.js';
 import { renderAggregateCard, attachAggregateCardEvents, updateAggregateCardSelections } from './components/aggregate-card.js';
@@ -25,9 +27,6 @@ class App {
     async init() {
         // Setup base layout HTML
         document.querySelector('#app').innerHTML = `
-          <!-- Sidebar -->
-          <aside id="sidebar"></aside>
-
           <!-- Main Content Area -->
           <main id="main-area">
             <header id="header"></header>
@@ -43,10 +42,15 @@ class App {
           <div id="generation-panel" style="display: none;"></div>
           <div id="tag-cloud-modal" style="display: none;"></div>
           <div id="playlist-bar"></div>
+          <div id="view-sort-modal" style="display: none;"></div>
+          <div id="actions-gen-modal" style="display: none;"></div>
+          <div id="branding-modal" style="display: none;"></div>
         `;
 
         // Initialize components
-        this.sidebar = new TagSidebar(document.querySelector('#sidebar'));
+        this.viewSortModal = new ViewSortModal(document.querySelector('#view-sort-modal'));
+        this.actionsGenModal = new ActionsGenModal(document.querySelector('#actions-gen-modal'));
+        this.brandingModal = new BrandingModal(document.querySelector('#branding-modal'));
         this.filterBar = new FilterBar(document.querySelector('#header'));
         this.detailModal = new DetailModal(document.querySelector('#detail-modal'));
         this.batchBar = new BatchTagBar(document.querySelector('#batch-bar'));
@@ -88,10 +92,6 @@ class App {
         this.setupGlobalNavigation();
 
         // Apply sticky UI states on startup
-        if (store.get('isSidebarCollapsed')) {
-            const sidebarEl = document.querySelector('#sidebar');
-            if (sidebarEl) sidebarEl.classList.add('collapsed');
-        }
         if (store.get('hudVisible') === false) {
             document.body.classList.add('hud-off');
         }
@@ -412,6 +412,21 @@ class App {
                 if (store.get('isTagCloudOpen')) {
                     e.preventDefault();
                     store.set({ isTagCloudOpen: false });
+                    return;
+                }
+                if (store.get('isViewSortOpen')) {
+                    e.preventDefault();
+                    store.set({ isViewSortOpen: false });
+                    return;
+                }
+                if (store.get('isActionsGenOpen')) {
+                    e.preventDefault();
+                    store.set({ isActionsGenOpen: false });
+                    return;
+                }
+                if (store.get('isBrandingOpen')) {
+                    e.preventDefault();
+                    store.set({ isBrandingOpen: false });
                     return;
                 }
                 if (store.get('isGenerationOpen')) {

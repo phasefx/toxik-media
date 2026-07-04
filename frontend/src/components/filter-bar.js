@@ -78,11 +78,11 @@ export class FilterBar {
           <div style="display: flex; flex-direction: column; gap: 0; padding: 8px 24px; background: var(--bg-card); width: 100%; min-height: var(--header-height);">
             <!-- Row 1: Catalog + Actions -->
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%;">
-              <!-- Left: Sidebar toggle + Catalog -->
-              <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
-                <button class="btn btn-icon" id="btn-toggle-sidebar" title="Toggle Sidebar (Collapse / Expand)" style="width: 36px; height: 36px; font-size: 1.1rem; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff;">
-                  ${store.get('isSidebarCollapsed') ? '▶' : '◀'}
-                </button>
+              <!-- Left: Branding + Catalog -->
+              <div style="display: flex; align-items: center; gap: 16px; min-width: 200px;">
+                <div id="branding-trigger" style="font-size: 1.3rem; font-weight: 800; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0 4px; user-select: none; transition: opacity 0.2s; color: #fff;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1" title="Toxik Information &amp; Hashes">
+                  Toxik <span style="font-size: 1.1rem;">🧪</span>
+                </div>
                 <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 8px; height: 36px;" title="Switch Database Catalog or Create New">
                   <span style="font-size: 0.85rem; color: var(--accent-cyan);">📚 Catalog:</span>
                   <select id="select-catalog" style="background: transparent; border: none; color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer; outline: none;">
@@ -93,7 +93,7 @@ export class FilterBar {
                 </div>
               </div>
 
-              <!-- Right: Gen Buttons + Tags + Config + Status -->
+              <!-- Right: Gen Buttons + View + Action + Tags + Config + Status -->
               <div style="display: flex; align-items: center; gap: 6px;">
                 <button class="btn" id="btn-toggle-gen" style="height: 36px; width: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; border-radius: 6px;" title="${genCollapsed ? 'Expand generation buttons' : 'Collapse to single button'}">${genCollapsed ? '<' : '>'}</button>
                 ${genCollapsed ? `
@@ -106,6 +106,8 @@ export class FilterBar {
                 <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
                 `}
                 <button class="btn" id="btn-top-queue" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(255, 200, 0, 0.1); border: 1px solid rgba(255, 200, 0, 0.3); color: #ffcc00;" title="Generation Queue">📋 Queue</button>
+                <button class="btn" id="btn-open-view" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan);" title="View &amp; Sort Settings">🖥️ View</button>
+                <button class="btn" id="btn-open-action" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan);" title="Actions &amp; Operations">🎮 Action</button>
                 <button class="btn" id="btn-open-tag-cloud" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan);" title="Tag Cloud &amp; Taxonomy">☁ Tags</button>
                 <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; border-radius: 6px; cursor: pointer;" title="Configuration Settings">⚙️</button>
                 ${isConnected ? `
@@ -146,21 +148,24 @@ export class FilterBar {
     }
 
     attachEvents() {
-        const toggleBtn = this.container.querySelector('#btn-toggle-sidebar');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                const current = store.get('isSidebarCollapsed') || false;
-                const next = !current;
-                try { localStorage.setItem('toxik_sidebar_collapsed', next ? 'true' : 'false'); } catch (e) {}
-                store.set({ isSidebarCollapsed: next });
-                const sidebarEl = document.querySelector('#sidebar');
-                if (sidebarEl) {
-                    if (next) {
-                        sidebarEl.classList.add('collapsed');
-                    } else {
-                        sidebarEl.classList.remove('collapsed');
-                    }
-                }
+        const viewBtn = this.container.querySelector('#btn-open-view');
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => {
+                store.set({ isViewSortOpen: true });
+            });
+        }
+
+        const actionBtn = this.container.querySelector('#btn-open-action');
+        if (actionBtn) {
+            actionBtn.addEventListener('click', () => {
+                store.set({ isActionsGenOpen: true });
+            });
+        }
+
+        const brandingTrigger = this.container.querySelector('#branding-trigger');
+        if (brandingTrigger) {
+            brandingTrigger.addEventListener('click', () => {
+                store.set({ isBrandingOpen: true });
             });
         }
 
