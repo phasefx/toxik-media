@@ -58,6 +58,16 @@ export function renderMediaCard(item, viewMode = 'grid') {
     const imgClass = viewMode === 'montage' ? 'montage-img' : 'card-img';
     const thumbUrl = item.thumb_url || `/thumbs/${item.id}.webp`;
 
+    let fnHash = 0;
+    const fn = item.filename || '';
+    for (let i = 0; i < fn.length; i++) {
+        fnHash = ((fnHash << 5) - fnHash) + fn.charCodeAt(i);
+        fnHash |= 0;
+    }
+    const hue = Math.abs(fnHash) % 360;
+    const borderColor = `hsl(${hue}, 85%, 60%)`;
+    const borderGlow = `hsla(${hue}, 85%, 60%, 0.3)`;
+
     // Relative sizing booster for montage if aspect ratio is wide/tall or file is prominent
     let sizeBoost = '';
     if (viewMode === 'montage' && ((item.width && item.width > 1500) || isVideo || isAudio)) {
@@ -85,7 +95,7 @@ export function renderMediaCard(item, viewMode = 'grid') {
                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; background: #000;"></video>
           </div>
         ` : isAudio ? `
-          <div class="audio-preview-container ${imgClass}" style="position: relative; overflow: hidden; background: linear-gradient(135deg, #111 0%, #1a1a2e 100%); display: flex; align-items: center; justify-content: center; min-height: 180px;">
+          <div class="audio-preview-container ${imgClass}" style="position: relative; overflow: hidden; background: linear-gradient(135deg, #111 0%, #1a1a2e 100%); display: flex; align-items: center; justify-content: center; min-height: 180px; border: 3px solid ${borderColor}; box-shadow: inset 0 0 25px ${borderGlow}; box-sizing: border-box;">
             ${item.thumb_url ? `<img class="thumb-preview" src="${item.thumb_url}" alt="${item.filename}" loading="lazy" onerror="this.style.display='none';" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.6);" />` : ''}
             <div style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; color: #fff; text-align: center; text-shadow: 0 2px 8px rgba(0,0,0,0.8); width: 100%;">
               <div style="font-size: 2.8rem; margin-bottom: 6px; animation: pulseGlow 2s infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));">🎵</div>
@@ -98,7 +108,7 @@ export function renderMediaCard(item, viewMode = 'grid') {
             <img class="${imgClass}" src="${thumbUrl}" alt="${item.filename}" loading="lazy"
                  style="width: 100%; height: 100%; object-fit: cover; display: block;"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-            <div class="no-preview-overlay" style="display: none; position: absolute; inset: 0; z-index: 2; flex-direction: column; align-items: center; justify-content: center; padding: 12px; color: #fff; text-align: center; background: linear-gradient(135deg, #141720 0%, #1f2333 100%); width: 100%; height: 100%;">
+            <div class="no-preview-overlay" style="display: none; position: absolute; inset: 0; z-index: 2; flex-direction: column; align-items: center; justify-content: center; padding: 12px; color: #fff; text-align: center; background: linear-gradient(135deg, #141720 0%, #1f2333 100%); width: 100%; height: 100%; border: 4px solid ${borderColor}; box-shadow: inset 0 0 25px ${borderGlow}; box-sizing: border-box;">
               <div style="font-size: 2.8rem; margin-bottom: 8px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));">${item.media_type === 'doc' ? '📄' : item.media_type === 'video' ? '🎬' : '🖼️'}</div>
               <div style="font-size: 0.75rem; font-weight: 600; color: #8e95b5; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">No Preview</div>
               <div style="font-size: 0.85rem; font-weight: 700; color: #fff; word-break: break-all; max-width: 90%; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">${item.filename}</div>

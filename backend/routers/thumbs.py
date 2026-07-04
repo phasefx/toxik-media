@@ -187,9 +187,19 @@ async def serve_thumbnail(filename: str, db: aiosqlite.Connection = Depends(get_
         text_elements.append(f'<text x="50%" y="{y}" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="600" fill="#e0e6ff">{line_esc}</text>')
     text_svg = "\n      ".join(text_elements)
 
-    placeholder_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" fill="#141720">
-      <rect width="300" height="300" fill="#141720"/>
-      <path d="M150 90 C130 90 115 105 115 125 C115 145 130 160 150 160 C170 160 185 145 185 125 C185 105 170 90 150 90 Z" fill="#2a2f42"/>
+    import hashlib
+    hue_hash = hashlib.md5(display_title.encode('utf-8')).hexdigest()
+    hue = int(hue_hash[:4], 16) % 360
+    bg_color = f"hsl({hue}, 20%, 12%)"
+    shape_color = f"hsl({hue}, 35%, 22%)"
+    border_color = f"hsl({hue}, 85%, 60%)"
+    glow_color = f"hsl({hue}, 85%, 60%, 0.3)"
+
+    placeholder_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" fill="{bg_color}">
+      <rect width="300" height="300" fill="{bg_color}"/>
+      <path d="M150 90 C130 90 115 105 115 125 C115 145 130 160 150 160 C170 160 185 145 185 125 C185 105 170 90 150 90 Z" fill="{shape_color}"/>
+      <rect x="8" y="8" width="284" height="284" rx="20" fill="none" stroke="{border_color}" stroke-width="16" />
+      <rect x="24" y="24" width="252" height="252" rx="12" fill="none" stroke="{glow_color}" stroke-width="2" />
       <text x="50%" y="130" dominant-baseline="middle" text-anchor="middle" font-size="32">{icon_char}</text>
       {text_svg}
     </svg>"""
