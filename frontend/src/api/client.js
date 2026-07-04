@@ -96,7 +96,7 @@ async function def_fetch(endpoint, options = {}) {
 }
 
 export const api = {
-    async browse({ filter = '', view = 'grid', page = 1, limit = 50, threshold = 1, mediaType = 'all', sortBy = 'creation_date', sortDir = 'desc' } = {}) {
+    async browse({ filter = '', view = 'grid', page = 1, limit = 50, threshold = 1, mediaType = 'all', sortBy = 'creation_date', sortDir = 'desc', search = '' } = {}) {
         const params = new URLSearchParams({
             view,
             page: page.toString(),
@@ -107,6 +107,9 @@ export const api = {
         });
         if (filter && filter !== 'All') {
             params.append('filter', filter);
+        }
+        if (search && search.trim()) {
+            params.append('search', search.trim());
         }
         if (mediaType && mediaType !== 'all') {
             params.append('media_type', mediaType);

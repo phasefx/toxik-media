@@ -1,7 +1,8 @@
 import aiosqlite
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Set
 from backend.models.schemas import BrowseResponse, AggregateResult, ItemResult, RepresentativeThumb
 from backend.services.tag_service import get_matching_media_ids
+from backend.services.search_service import search_media_fts
 from backend.services.media_service import get_media_item
 import logging
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 async def browse_media(
     db: aiosqlite.Connection,
     filter_pattern: Optional[str] = None,
+    search_query: Optional[str] = None,
     page: int = 1,
     limit: int = 50,
     aggregate_threshold: int = 1,
@@ -17,7 +19,29 @@ async def browse_media(
     sort_by: str = "creation_date",
     sort_dir: str = "desc"
 ) -> BrowseResponse:
-    matching_ids, media_next_seg, media_all_tags, group_parent = await get_matching_media_ids(db, filter_pattern, media_type)
+    # Step 1: Tag-based matching for the chip-context filter
+    tag_matching_ids, media_next_seg, media_all_tags, group_parent = await get_matching_media_ids(db, filter_pattern, media_type)
+
+    # Step 2: Search-based matching (FTS + tag OR)
+    search_matched_ids: Set[str] = set()
+    if search_query and search_query.strip():
+        sq = search_query.strip()
+        # FTS search
+        fts_ids = await search_media_fts(db, sq)
+        search_matched_ids.update(fts_ids)
+        # Tag matching for search query tokens (OR'ed)
+        search_tokens = sq.split()
+        for tok in search_tokens:
+            tok_tag_ids, _, _, _ = await get_matching_media_ids(db, tok, media_type)
+            search_matched_ids.update(tok_tag_ids)
+
+    # Step 3: Combine
+    if tag_matching_ids and search_matched_ids:
+        matching_ids = tag_matching_ids & search_matched_ids
+    elif search_matched_ids:
+        matching_ids = search_matched_ids
+    else:
+        matching_ids = tag_matching_ids
 
     total_cursor = await db.execute("SELECT COUNT(*) FROM media")
     total_row = await total_cursor.fetchone()

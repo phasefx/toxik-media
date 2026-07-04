@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api/browse", tags=["browse"])
 @router.get("", response_model=BrowseResponse)
 async def browse(
     filter: Optional[str] = Query(None, description="Tag filter pattern (prefix or wildcard)"),
+    search: Optional[str] = Query(None, description="Free-text search across filenames, paths, metadata, and document content"),
     view: str = Query("grid", description="View mode: grid, montage, or viewport"),
     media_type: Optional[str] = Query(None, description="Filter by media type: image or video"),
     sort_by: str = Query("creation_date", description="Sort by field"),
@@ -20,7 +21,7 @@ async def browse(
     threshold: int = Query(1, ge=0, description="Aggregate card threshold"),
     db: aiosqlite.Connection = Depends(get_db)
 ):
-    res = await browse_media(db, filter_pattern=filter, page=page, limit=limit, aggregate_threshold=threshold, media_type=media_type, sort_by=sort_by, sort_dir=sort_dir)
+    res = await browse_media(db, filter_pattern=filter, search_query=search, page=page, limit=limit, aggregate_threshold=threshold, media_type=media_type, sort_by=sort_by, sort_dir=sort_dir)
     return res
 
 @router.get("/playlist")

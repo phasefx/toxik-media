@@ -6,6 +6,7 @@ class Store extends EventTarget {
         this.state = {
             viewMode: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_view_mode')) || 'grid',
             activeFilter: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_active_filter')) || '',
+            searchQuery: (typeof localStorage !== 'undefined' && localStorage.getItem('toxik_search_query')) || '',
             tags: [],
             results: [],
             page: 1,
@@ -110,6 +111,12 @@ class Store extends EventTarget {
         await this.loadBrowse(true);
     }
 
+    async setSearchQuery(query) {
+        try { localStorage.setItem('toxik_search_query', query); } catch (e) {}
+        this.set({ searchQuery: query, page: 1, results: [], hasMore: false, selectedIds: new Set(), lastSelectedId: null });
+        await this.loadBrowse(true);
+    }
+
     async setMediaType(mediaType) {
         try { localStorage.setItem('toxik_media_type', mediaType); } catch (e) {}
         this.set({ mediaType, page: 1, results: [], hasMore: false, selectedIds: new Set(), lastSelectedId: null });
@@ -136,6 +143,7 @@ class Store extends EventTarget {
             const currentPage = reset ? 1 : this.state.page;
             const res = await api.browse({
                 filter: this.getEffectiveFilter(),
+                search: this.state.searchQuery || '',
                 view: this.state.viewMode,
                 page: currentPage,
                 limit: this.state.limit,
@@ -186,6 +194,7 @@ class Store extends EventTarget {
         try {
             const res = await api.browse({
                 filter: this.getEffectiveFilter(),
+                search: this.state.searchQuery || '',
                 view: this.state.viewMode,
                 page: 1,
                 limit: 100000,

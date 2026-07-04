@@ -51,6 +51,21 @@ CREATE TABLE IF NOT EXISTS media_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS document_content (
+    media_id    TEXT PRIMARY KEY,
+    content     TEXT NOT NULL,
+    FOREIGN KEY (media_id) REFERENCES media(id) ON DELETE CASCADE
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS media_fts USING fts5(
+    media_id UNINDEXED,
+    filename,
+    filepath,
+    metadata,
+    document_content,
+    tokenize='porter unicode61'
+);
+
 CREATE TABLE IF NOT EXISTS generation_jobs (
     id          TEXT PRIMARY KEY,
     workflow_id TEXT NOT NULL,
@@ -170,4 +185,10 @@ async def init_db():
                 await db.execute(statement)
         await db.commit()
         await run_migrations(db)
+    # Rebuild FTS index for existing media
+    from backend.services.search_service import rebuild_media_fts
+    async with aiosqlite.connect(settings.db_path, timeout=30.0) as db:
+        await db.execute("PRAGMA foreign_keys = ON;")
+        db.row_factory = aiosqlite.Row
+        await rebuild_media_fts(db)
 

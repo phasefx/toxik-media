@@ -9,6 +9,7 @@ import aiosqlite
 from backend.models.schemas import MediaItem
 from backend.services.thumbnail_service import generate_thumbnail, get_media_metadata
 from backend.services.tag_service import ensure_tag_exists
+from backend.services.search_service import upsert_media_fts, delete_media_fts, extract_document_content
 from backend.routers.websocket import manager
 import logging
 import time
@@ -305,6 +306,21 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
                 thumb_path, meta.get("created_at"), meta.get("modified_at"), json.dumps({})
             ))
             await db.commit()
+
+            # Extract document content and populate FTS index
+            doc_content = ""
+            if media_type == "doc":
+                doc_content = await extract_document_content(filepath)
+                if doc_content:
+                    await db.execute(
+                        "INSERT INTO document_content (media_id, content) VALUES (?, ?)",
+                        (media_id, doc_content)
+                    )
+                    await db.commit()
+            metadata_str = json.dumps({})
+            await upsert_media_fts(db, media_id, filename, filepath, metadata_str, doc_content)
+            await db.commit()
+
             imported_ids.append((filepath, media_id))
 
         except Exception as e:

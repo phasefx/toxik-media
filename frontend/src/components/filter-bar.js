@@ -19,6 +19,7 @@ export class FilterBar {
     render() {
         const breadcrumb = store.getBreadcrumb();
         const activeFilter = store.get('activeFilter') || '';
+        const searchQuery = store.get('searchQuery') || '';
         const viewMode = store.get('viewMode');
         const mediaType = store.get('mediaType') || 'all';
         let genCollapsed = true;
@@ -55,61 +56,68 @@ export class FilterBar {
           <option value="${c.name}" ${c.name === activeCatalog ? 'selected' : ''} style="background: var(--bg-card); color: #fff;">${c.name}</option>
         `).join('');
 
+        const isFilterActive = activeFilter && activeFilter !== 'All' && activeFilter !== '';
+
         this.container.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: var(--bg-card); flex-wrap: wrap; width: 100%; min-height: var(--header-height);">
-            <!-- Left: Breadcrumb & Filter Info -->
-            <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
-              <button class="btn btn-icon" id="btn-toggle-sidebar" title="Toggle Sidebar (Collapse / Expand)" style="width: 36px; height: 36px; font-size: 1.1rem; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff;">
-                ${store.get('isSidebarCollapsed') ? '▶' : '◀'}
-              </button>
-              <span style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600;">🏷 Filter:</span>
-              ${breadcrumbHtml}
-            </div>
-
-            <!-- Middle: Wildcard Search Input & Catalog Switcher -->
-            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-              <div style="display: flex; align-items: center; gap: 6px; width: 220px; min-width: 160px;">
-                <input type="text" class="input" id="filter-input" placeholder="Filter tags..." value="${activeFilter}"
-                       style="height: 36px; font-size: 0.85rem; width: 100%;" />
-                <button class="btn" id="btn-search-apply" title="Apply Filter" style="height: 36px; padding: 0 14px;">🔍</button>
+          <div style="display: flex; flex-direction: column; gap: 0; padding: 8px 24px; background: var(--bg-card); width: 100%; min-height: var(--header-height);">
+            <!-- Row 1: Catalog + Actions -->
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%;">
+              <!-- Left: Sidebar toggle + Catalog -->
+              <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
+                <button class="btn btn-icon" id="btn-toggle-sidebar" title="Toggle Sidebar (Collapse / Expand)" style="width: 36px; height: 36px; font-size: 1.1rem; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff;">
+                  ${store.get('isSidebarCollapsed') ? '▶' : '◀'}
+                </button>
+                <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 8px; height: 36px;" title="Switch Database Catalog or Create New">
+                  <span style="font-size: 0.85rem; color: var(--accent-cyan);">📚 Catalog:</span>
+                  <select id="select-catalog" style="background: transparent; border: none; color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer; outline: none;">
+                    ${catalogsOptions || `<option value="${activeCatalog}">${activeCatalog}</option>`}
+                  </select>
+                  <button class="btn btn-icon" id="btn-add-catalog" title="Create / Switch to New Catalog" style="width: 26px; height: 26px; font-size: 1rem; padding: 0; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); color: var(--accent-cyan); display: flex; align-items: center; justify-content: center; line-height: 1;">+</button>
+                  <button class="btn btn-icon" id="btn-del-catalog" title="Delete an inactive catalog by typing its exact name" style="width: 26px; height: 26px; font-size: 0.85rem; padding: 0; background: rgba(255, 0, 0, 0.15); border: 1px solid rgba(255, 0, 0, 0.4); color: #ff6b6b; display: flex; align-items: center; justify-content: center; line-height: 1;">🗑️</button>
+                </div>
               </div>
 
-              <!-- Catalog Switcher -->
-              <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 8px; height: 36px;" title="Switch Database Catalog or Create New">
-                <span style="font-size: 0.85rem; color: var(--accent-cyan);">📚 Catalog:</span>
-                <select id="select-catalog" style="background: transparent; border: none; color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer; outline: none;">
-                  ${catalogsOptions || `<option value="${activeCatalog}">${activeCatalog}</option>`}
-                </select>
-                <button class="btn btn-icon" id="btn-add-catalog" title="Create / Switch to New Catalog" style="width: 26px; height: 26px; font-size: 1rem; padding: 0; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); color: var(--accent-cyan); display: flex; align-items: center; justify-content: center; line-height: 1;">+</button>
-                <button class="btn btn-icon" id="btn-del-catalog" title="Delete an inactive catalog by typing its exact name" style="width: 26px; height: 26px; font-size: 0.85rem; padding: 0; background: rgba(255, 0, 0, 0.15); border: 1px solid rgba(255, 0, 0, 0.4); color: #ff6b6b; display: flex; align-items: center; justify-content: center; line-height: 1;">🗑️</button>
+              <!-- Right: Gen Buttons + Tags + Config + Status -->
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button class="btn" id="btn-toggle-gen" style="height: 36px; width: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; border-radius: 6px;" title="${genCollapsed ? 'Expand generation buttons' : 'Collapse to single button'}">${genCollapsed ? '<' : '>'}</button>
+                ${genCollapsed ? `
+                <button class="btn btn-primary" id="btn-top-gen" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-gradient); border: none;" title="AI Generation">🎨 Generate</button>
+                ` : `
+                <button class="btn btn-primary" id="btn-top-t2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Text-to-Image Generation">🎨 T2I</button>
+                <button class="btn btn-primary" id="btn-top-t2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Text-to-Video Generation">🎬 T2V</button>
+                <button class="btn btn-primary" id="btn-top-i2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Image-to-Image Generation (Requires Selection)">🖼️ I2I</button>
+                <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
+                <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
+                `}
+                <button class="btn" id="btn-open-tag-cloud" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan);" title="Tag Cloud &amp; Taxonomy">☁ Tags</button>
+                <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; border-radius: 6px; cursor: pointer;" title="Configuration Settings">⚙️</button>
+                ${isConnected ? `
+                  <div id="conn-status-indicator" title="Backend Server: Online & Responsive" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #00ff88; cursor: pointer; transition: all 0.2s ease;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 8px #00ff88; display: inline-block;"></span>
+                    <span>${(typeof window !== 'undefined' && window.__activeRequestCount > 0) ? window.__activeRequestCount : 'ONLINE'}</span>
+                  </div>
+                ` : `
+                  <div id="conn-status-indicator" title="Backend Server: Offline / Unreachable (Click to retry connection)" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(255, 68, 68, 0.15); border: 1px solid rgba(255, 68, 68, 0.6); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #ff4444; cursor: pointer; transition: all 0.2s ease; animation: pulseGlow 1s infinite;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #ff4444; box-shadow: 0 0 10px #ff4444; display: inline-block;"></span>
+                    <span>OFFLINE</span>
+                  </div>
+                `}
               </div>
             </div>
 
-            <!-- Right: Gen Buttons (Right Justified) -->
-            <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
-              <button class="btn" id="btn-toggle-gen" style="height: 36px; width: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; border-radius: 6px;" title="${genCollapsed ? 'Expand generation buttons' : 'Collapse to single button'}">${genCollapsed ? '<' : '>'}</button>
-              ${genCollapsed ? `
-              <button class="btn btn-primary" id="btn-top-gen" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-gradient); border: none;" title="AI Generation">🎨 Generate</button>
-              ` : `
-              <button class="btn btn-primary" id="btn-top-t2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Text-to-Image Generation">🎨 T2I</button>
-              <button class="btn btn-primary" id="btn-top-t2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Text-to-Video Generation">🎬 T2V</button>
-              <button class="btn btn-primary" id="btn-top-i2i" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px;" title="Image-to-Image Generation (Requires Selection)">🖼️ I2I</button>
-              <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
-              <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
-              `}
-              <button class="btn" id="btn-open-tag-cloud" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan);" title="Tag Cloud &amp; Taxonomy">☁ Tags</button>
-              <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; margin-left: 8px; border-radius: 6px; cursor: pointer;" title="Configuration Settings">⚙️</button>
-              ${isConnected ? `
-                <div id="conn-status-indicator" title="Backend Server: Online & Responsive" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #00ff88; margin-left: 4px; cursor: pointer; transition: all 0.2s ease;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 8px #00ff88; display: inline-block;"></span>
-                  <span>${(typeof window !== 'undefined' && window.__activeRequestCount > 0) ? window.__activeRequestCount : 'ONLINE'}</span>
-                </div>
-              ` : `
-                <div id="conn-status-indicator" title="Backend Server: Offline / Unreachable (Click to retry connection)" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(255, 68, 68, 0.15); border: 1px solid rgba(255, 68, 68, 0.6); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #ff4444; margin-left: 4px; cursor: pointer; transition: all 0.2s ease; animation: pulseGlow 1s infinite;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #ff4444; box-shadow: 0 0 10px #ff4444; display: inline-block;"></span>
-                  <span>OFFLINE</span>
-                </div>
-              `}
+            <!-- Row 2: Breadcrumb + Search -->
+            <div style="display: flex; align-items: center; gap: 12px; width: 100%; padding-top: 8px; border-top: 1px solid var(--border-color); margin-top: 8px;">
+              ${isFilterActive ? `
+              <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                <span style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600;">🏷</span>
+                ${breadcrumbHtml}
+              </div>
+              ` : ''}
+              <div style="display: flex; align-items: center; gap: 6px; flex: 1; justify-content: flex-end;">
+                <input type="text" class="input" id="filter-input" placeholder="Search filenames, paths, tags, metadata..." value="${searchQuery}"
+                       style="height: 36px; font-size: 0.85rem; width: 100%; max-width: 480px;" />
+                <button class="btn" id="btn-search-apply" title="Search" style="height: 36px; padding: 0 14px;">🔍</button>
+              </div>
             </div>
           </div>
         `;
@@ -160,7 +168,7 @@ export class FilterBar {
         if (input && applyBtn) {
             const apply = () => {
                 const val = input.value.trim();
-                store.setFilter(val);
+                store.setSearchQuery(val);
             };
             applyBtn.addEventListener('click', apply);
             input.addEventListener('keydown', (e) => {
