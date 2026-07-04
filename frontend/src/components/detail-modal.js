@@ -883,24 +883,21 @@ export class DetailModal {
         const i2iBtn = this.container.querySelector('#btn-action-i2i');
         if (i2iBtn) {
             i2iBtn.addEventListener('click', () => {
-                const sticky = store.get('stickyTab') || 'form';
-                store.set({ isGenerationOpen: true, generationTab: sticky, entryMode: 'I2I' });
+                store.set({ isGenerationOpen: true, generationTab: 'form', entryMode: 'I2I' });
             });
         }
 
         const i2vBtn = this.container.querySelector('#btn-action-i2v');
         if (i2vBtn) {
             i2vBtn.addEventListener('click', () => {
-                const sticky = store.get('stickyTab') || 'form';
-                store.set({ isGenerationOpen: true, generationTab: sticky, entryMode: 'I2V' });
+                store.set({ isGenerationOpen: true, generationTab: 'form', entryMode: 'I2V' });
             });
         }
 
         const v2vBtn = this.container.querySelector('#btn-action-v2v');
         if (v2vBtn) {
             v2vBtn.addEventListener('click', () => {
-                const sticky = store.get('stickyTab') || 'form';
-                store.set({ isGenerationOpen: true, generationTab: sticky, entryMode: 'V2V' });
+                store.set({ isGenerationOpen: true, generationTab: 'form', entryMode: 'V2V' });
             });
         }
 

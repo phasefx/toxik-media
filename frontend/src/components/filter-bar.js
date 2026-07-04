@@ -105,6 +105,7 @@ export class FilterBar {
                 <button class="btn btn-primary" id="btn-top-i2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Image-to-Video Generation (Requires Selection)">🎥 I2V</button>
                 <button class="btn btn-primary" id="btn-top-v2v" style="height: 36px; font-size: 0.8rem; font-weight: 700; padding: 0 10px; background: var(--accent-purple); border-color: rgba(157, 0, 255, 0.4);" title="Video-to-Video Generation (Requires Selection)">🎞️ V2V</button>
                 `}
+                <button class="btn" id="btn-top-queue" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(255, 200, 0, 0.1); border: 1px solid rgba(255, 200, 0, 0.3); color: #ffcc00;" title="Generation Queue">📋 Queue</button>
                 <button class="btn" id="btn-open-tag-cloud" style="height: 36px; padding: 0 10px; font-size: 0.8rem; font-weight: 600; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan);" title="Tag Cloud &amp; Taxonomy">☁ Tags</button>
                 <button class="btn" id="btn-open-config" style="height: 36px; width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: #fff; border-radius: 6px; cursor: pointer;" title="Configuration Settings">⚙️</button>
                 ${isConnected ? `
@@ -197,8 +198,7 @@ export class FilterBar {
             if (btn) {
                 btn.addEventListener('click', () => {
                     const willOpen = !(store.get('isGenerationOpen') && store.get('entryMode') === mode);
-                    const sticky = store.get('stickyTab') || 'form';
-                    store.set({ isGenerationOpen: willOpen, generationTab: sticky, entryMode: mode });
+                    store.set({ isGenerationOpen: willOpen, generationTab: 'form', entryMode: mode });
                 });
             }
         });
@@ -218,8 +218,16 @@ export class FilterBar {
         if (genBtn) {
             genBtn.addEventListener('click', () => {
                 const willOpen = !store.get('isGenerationOpen');
-                const sticky = store.get('stickyTab') || 'form';
-                store.set({ isGenerationOpen: willOpen, generationTab: sticky, entryMode: 'T2I' });
+                store.set({ isGenerationOpen: willOpen, generationTab: 'form', entryMode: 'ALL' });
+            });
+        }
+
+        // Queue button
+        const queueBtn = this.container.querySelector('#btn-top-queue');
+        if (queueBtn) {
+            queueBtn.addEventListener('click', () => {
+                const willOpen = !(store.get('isGenerationOpen') && store.get('entryMode') === 'QUEUE');
+                store.set({ isGenerationOpen: willOpen, generationTab: 'queue', entryMode: 'QUEUE' });
             });
         }
 

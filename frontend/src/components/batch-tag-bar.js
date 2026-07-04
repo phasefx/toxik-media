@@ -116,8 +116,7 @@ export class BatchTagBar {
         const genBtn = this.container.querySelector('#btn-batch-generate');
         if (genBtn) {
             genBtn.addEventListener('click', () => {
-                const sticky = store.get('stickyTab') || 'form';
-                store.set({ isGenerationOpen: true, generationTab: sticky, entryMode: 'BATCH' });
+                store.set({ isGenerationOpen: true, generationTab: 'form', entryMode: 'BATCH' });
             });
         }
 
