@@ -1,6 +1,72 @@
 const BASE_URL = '';
 
+if (typeof window !== 'undefined') {
+    window.__activeRequestCount = 0;
+    window.__appExpectedCount = 0;
+
+    window.addAppExpectedRequests = function(count = 1) {
+        window.__appExpectedCount = Math.max(0, (window.__appExpectedCount || 0) + count);
+        if (window.__updateOnlineBadge) window.__updateOnlineBadge();
+    };
+    window.removeAppExpectedRequests = function(count = 1) {
+        window.__appExpectedCount = Math.max(0, (window.__appExpectedCount || 0) - count);
+        if (window.__updateOnlineBadge) window.__updateOnlineBadge();
+    };
+    window.setAppExpectedRequests = function(count = 0) {
+        window.__appExpectedCount = Math.max(0, count);
+        if (window.__updateOnlineBadge) window.__updateOnlineBadge();
+    };
+
+    window.__updateOnlineBadge = function() {
+        const indicator = document.getElementById('conn-status-indicator');
+        if (!indicator) return;
+        const firstSpan = indicator.querySelector('span:first-child');
+        if (!firstSpan) return;
+        if (indicator.textContent.includes('OFFLINE') && !indicator.style.color.includes('00ff88')) return;
+
+        const appCount = window.__appExpectedCount || 0;
+        const netCount = window.__activeRequestCount || 0;
+
+        while (indicator.childNodes.length > 1) {
+            indicator.removeChild(indicator.lastChild);
+        }
+
+        if (appCount > 0 || netCount > 0) {
+            const container = document.createElement('div');
+            container.style.cssText = "display: flex; align-items: center; gap: 4px; margin-left: 2px;";
+            container.innerHTML = `
+              <span style="color: #ffcc00; background: rgba(255, 204, 0, 0.15); border: 1px solid rgba(255, 204, 0, 0.4); padding: 0 5px; border-radius: 4px; font-weight: 800; font-family: monospace; font-size: 0.7rem;" title="Application Expected Operations / Batch Tasks">APP: ${appCount}</span>
+              <span style="color: #00f0ff; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); padding: 0 5px; border-radius: 4px; font-weight: 800; font-family: monospace; font-size: 0.7rem;" title="Active In-Flight HTTP Network Requests">NET: ${netCount}</span>
+            `;
+            indicator.appendChild(container);
+            indicator.title = `Backend Server: Online (APP Expected: ${appCount}, NET Active: ${netCount})`;
+        } else {
+            const span = document.createElement('span');
+            span.textContent = 'ONLINE';
+            span.style.marginLeft = '2px';
+            indicator.appendChild(span);
+            indicator.title = 'Backend Server: Online & Responsive';
+        }
+    };
+
+    if (!window.__toxikFetchWrapped) {
+        window.__toxikFetchWrapped = true;
+        const origFetch = window.fetch;
+        window.fetch = async function(...args) {
+            window.__activeRequestCount = (window.__activeRequestCount || 0) + 1;
+            window.__updateOnlineBadge();
+            try {
+                return await origFetch.apply(this, args);
+            } finally {
+                window.__activeRequestCount = Math.max(0, (window.__activeRequestCount || 1) - 1);
+                window.__updateOnlineBadge();
+            }
+        };
+    }
+}
+
 async function def_fetch(endpoint, options = {}) {
+    if (typeof window !== 'undefined' && window.addAppExpectedRequests) window.addAppExpectedRequests(1);
     try {
         const response = await fetch(`${BASE_URL}${endpoint}`, {
             headers: {
@@ -24,6 +90,8 @@ async function def_fetch(endpoint, options = {}) {
         }
         console.error(`API Error on ${endpoint}:`, error);
         throw error;
+    } finally {
+        if (typeof window !== 'undefined' && window.removeAppExpectedRequests) window.removeAppExpectedRequests(1);
     }
 }
 

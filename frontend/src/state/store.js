@@ -180,6 +180,7 @@ class Store extends EventTarget {
         }
 
         this.set({ isLoading: true });
+        if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(total || 1);
         try {
             const res = await api.browse({
                 filter: this.getEffectiveFilter(),
@@ -204,6 +205,8 @@ class Store extends EventTarget {
         } catch (e) {
             console.error('Failed to fetch all results:', e);
             this.set({ isLoading: false });
+        } finally {
+            if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(0);
         }
     }
 

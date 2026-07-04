@@ -15,6 +15,7 @@ import { GenerationPanel } from './components/generation-panel.js';
 import { PlaylistBar } from './components/playlist-bar.js';
 import { TagCloudModal } from './components/tag-cloud-modal.js';
 import { wsClient } from './api/websocket.js';
+import { api } from './api/client.js';
 
 class App {
     constructor() {

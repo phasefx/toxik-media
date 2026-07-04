@@ -28,6 +28,13 @@ export class WebSocketClient {
                     const data = JSON.parse(event.data);
                     if (data.type && (data.type.startsWith('ingest_') || data.type.startsWith('thumbnail_') || data.type.startsWith('job_') || data.type === 'media_imported')) {
                         console.info(`%c[Toxik WS: ${data.type}]`, 'color: #00f0ff; font-weight: bold;', data.message || data);
+                        if (typeof window !== 'undefined' && window.setAppExpectedRequests) {
+                            if (data.type === 'ingest_progress' && data.total !== undefined && data.current !== undefined) {
+                                window.setAppExpectedRequests(Math.max(0, data.total - data.current));
+                            } else if (data.type === 'ingest_complete' || data.type === 'media_imported' || data.status === 'done') {
+                                window.setAppExpectedRequests(0);
+                            }
+                        }
                     } else {
                         console.log('[Toxik WS Event]', data);
                     }

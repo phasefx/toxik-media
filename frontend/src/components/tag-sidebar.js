@@ -542,6 +542,7 @@ export class TagSidebar {
                     try {
                         importBtn.textContent = '⏳ Importing...';
                         importBtn.disabled = true;
+                        if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(1);
                         const res = await api.importMedia([path.trim()], tagsToApply);
                         alert(`Successfully imported ${res.length} media items!${tagsToApply.length ? ` Tagged as "${tagsToApply[0]}".` : ''}`);
                         await store.loadBrowse(true);
@@ -551,6 +552,7 @@ export class TagSidebar {
                     } finally {
                         importBtn.textContent = '📥 Import';
                         importBtn.disabled = false;
+                        if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(0);
                     }
                 }
             });
@@ -573,6 +575,7 @@ export class TagSidebar {
                 try {
                     reingestBtn.textContent = '⏳ Re-ingesting...';
                     reingestBtn.disabled = true;
+                    if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(displayedIds.length);
                     const res = await api.reingestBatch(displayedIds);
                     await store.loadBrowse(true);
                     await store.loadTags();
@@ -581,6 +584,7 @@ export class TagSidebar {
                 } finally {
                     reingestBtn.textContent = '🔄 Re-Ingest';
                     reingestBtn.disabled = false;
+                    if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(0);
                 }
             });
         }

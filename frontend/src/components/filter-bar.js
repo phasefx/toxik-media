@@ -94,7 +94,7 @@ export class FilterBar {
               ${isConnected ? `
                 <div id="conn-status-indicator" title="Backend Server: Online & Responsive" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #00ff88; margin-left: 4px; cursor: pointer; transition: all 0.2s ease;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 8px #00ff88; display: inline-block;"></span>
-                  <span>ONLINE</span>
+                  <span>${(typeof window !== 'undefined' && window.__activeRequestCount > 0) ? window.__activeRequestCount : 'ONLINE'}</span>
                 </div>
               ` : `
                 <div id="conn-status-indicator" title="Backend Server: Offline / Unreachable (Click to retry connection)" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; background: rgba(255, 68, 68, 0.15); border: 1px solid rgba(255, 68, 68, 0.6); border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #ff4444; margin-left: 4px; cursor: pointer; transition: all 0.2s ease; animation: pulseGlow 1s infinite;">
@@ -107,6 +107,9 @@ export class FilterBar {
         `;
 
         this.attachEvents();
+        if (typeof window !== 'undefined' && window.__updateOnlineBadge) {
+            window.__updateOnlineBadge();
+        }
     }
 
     attachEvents() {
