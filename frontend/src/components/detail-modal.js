@@ -1,5 +1,7 @@
 import { store } from '../state/store.js';
 import { api } from '../api/client.js';
+import { marked } from 'marked';
+import ePub from 'epubjs';
 
 export class DetailModal {
     constructor(container) {
@@ -28,7 +30,8 @@ export class DetailModal {
     attachGlobalEvents() {
         let lastWheelTime = 0;
         this.container.addEventListener('wheel', (e) => {
-            if (!store.get('activeModalItem')) return;
+            const activeItem = store.get('activeModalItem');
+            if (!activeItem || activeItem.media_type === 'doc') return;
             if (e.target.closest('.modal-sidebar') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
                 return;
             }
@@ -214,7 +217,7 @@ export class DetailModal {
                 <button id="btn-toggle-stretch-media" title="Toggle Stretch to Fit (${store.get('mediaStretchFit') ? 'Cover' : 'Contain'})" style="position: absolute; top: 16px; left: 116px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: ${store.get('mediaStretchFit') ? 'var(--accent-gradient)' : 'rgba(0,0,0,0.6)'}; border: 1px solid var(--border-color); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">${store.get('mediaStretchFit') ? '↔️' : '🔲'}</button>
 
                 ${isDoc ? `
-                  <div id="doc-viewer-container" style="width: 100%; height: 100%; background: #0f111a; color: #e0e0e0; padding: 60px 40px; overflow-y: auto; font-family: 'Inter', system-ui, sans-serif; line-height: 1.6; font-size: 1rem; max-width: 900px; margin: 0 auto; box-sizing: border-box; text-align: left;">
+                  <div id="doc-viewer-container" style="width: 100%; height: 100%; background: #0f111a; color: #e0e0e0; overflow: hidden; box-sizing: border-box; text-align: left; display: flex; flex-direction: column; position: relative;">
                     <div style="display:flex; justify-content:center; align-items:center; height:100%; color: var(--text-muted);">
                       <span>⌛ Loading document content (${item.filename})...</span>
                     </div>
@@ -364,16 +367,88 @@ export class DetailModal {
         `;
 
         if (isDoc) {
-            fetch(mediaUrl).then(res => res.text()).then(text => {
-                const docEl = this.container.querySelector('#doc-viewer-container');
-                if (docEl) {
-                    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    docEl.innerHTML = `<h1 style="color:#fff; border-bottom:1px solid #333; padding-bottom:10px; margin-top:0;">${item.filename}</h1><pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${escaped}</pre>`;
+            const docEl = this.container.querySelector('#doc-viewer-container');
+            const ext = item.filename ? item.filename.slice(item.filename.lastIndexOf('.')).toLowerCase() : '';
+            if (docEl) {
+                if (ext === '.pdf') {
+                    docEl.style.background = '#fff';
+                    docEl.innerHTML = `<iframe src="${mediaUrl}#toolbar=1&view=FitH" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>`;
+                } else if (ext === '.html' || ext === '.htm') {
+                    docEl.style.background = '#fff';
+                    docEl.innerHTML = `<iframe src="${mediaUrl}" sandbox="allow-scripts allow-same-origin" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>`;
+                } else if (ext === '.epub') {
+                    docEl.style.background = '#1a1c23';
+                    docEl.innerHTML = `
+                      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: #141720; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; z-index: 5;">
+                        <span style="font-weight: 600; color: #fff; font-size: 0.95rem;">📖 ${item.filename}</span>
+                        <div style="display: flex; gap: 8px;">
+                          <button id="epub-prev" class="btn" style="padding: 6px 16px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">◀ Prev</button>
+                          <button id="epub-next" class="btn" style="padding: 6px 16px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">Next ▶</button>
+                        </div>
+                      </div>
+                      <div id="epub-render-area" style="flex: 1; width: 100%; height: 100%; background: #fff; overflow: hidden; position: relative;"></div>
+                    `;
+                    try {
+                        const book = ePub(mediaUrl);
+                        const rendition = book.renderTo("epub-render-area", {
+                            width: "100%",
+                            height: "100%",
+                            spread: "always"
+                        });
+                        rendition.display();
+                        const prevBtn = docEl.querySelector('#epub-prev');
+                        const nextBtn = docEl.querySelector('#epub-next');
+                        if (prevBtn) prevBtn.onclick = () => rendition.prev();
+                        if (nextBtn) nextBtn.onclick = () => rendition.next();
+                    } catch (e) {
+                        docEl.innerHTML = `<div style="color:#ff4444; padding: 40px;">Failed to render EPUB: ${e.message}</div>`;
+                    }
+                } else {
+                    fetch(mediaUrl).then(res => res.text()).then(text => {
+                        const docEl = this.container.querySelector('#doc-viewer-container');
+                        if (!docEl) return;
+
+                        docEl.style.overflowY = 'auto';
+                        docEl.style.padding = '40px 60px';
+                        docEl.style.background = '#0f111a';
+
+                        if (ext === '.md' || ext === '.markdown') {
+                            const renderedHtml = marked.parse(text, { breaks: true, gfm: true });
+                            docEl.innerHTML = `
+                              <div class="markdown-body" style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: 'Inter', system-ui, sans-serif; line-height: 1.7; font-size: 1.05rem;">
+                                <div style="border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 16px; margin-bottom: 24px; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
+                                  📄 Markdown Document • ${item.filename}
+                                </div>
+                                ${renderedHtml}
+                              </div>
+                            `;
+                        } else if (ext === '.rst') {
+                            const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            docEl.innerHTML = `
+                              <div style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: 'Inter', system-ui, sans-serif; line-height: 1.7; font-size: 1.05rem;">
+                                <div style="border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 16px; margin-bottom: 24px; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
+                                  📄 reStructuredText • ${item.filename}
+                                </div>
+                                <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${escaped}</pre>
+                              </div>
+                            `;
+                        } else {
+                            const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            docEl.innerHTML = `
+                              <div style="max-width: 900px; margin: 0 auto; width: 100%; color: #e0e0e0; font-family: 'Inter', system-ui, sans-serif; line-height: 1.7; font-size: 1rem;">
+                                <div style="border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 16px; margin-bottom: 24px; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
+                                  📄 Text Document • ${item.filename}
+                                </div>
+                                <pre style="white-space: pre-wrap; font-family: 'Courier New', Courier, monospace; margin: 0; line-height: 1.5; font-size: 0.95rem;">${escaped}</pre>
+                              </div>
+                            `;
+                        }
+                    }).catch(err => {
+                        const docEl = this.container.querySelector('#doc-viewer-container');
+                        if (docEl) docEl.innerHTML = `<div style="color:#ff4444; padding: 40px;">Failed to load document: ${err.message}</div>`;
+                    });
                 }
-            }).catch(err => {
-                const docEl = this.container.querySelector('#doc-viewer-container');
-                if (docEl) docEl.innerHTML = `<div style="color:#ff4444;">Failed to load document: ${err.message}</div>`;
-            });
+            }
         }
 
         this.updatePlaylistUI();
