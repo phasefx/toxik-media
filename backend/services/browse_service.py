@@ -1,5 +1,6 @@
+import random
 import aiosqlite
-from typing import List, Dict, Any, Optional, Union, Set
+from typing import List, Dict, Optional, Union, Set
 from backend.models.schemas import BrowseResponse, AggregateResult, ItemResult, RepresentativeThumb
 from backend.services.tag_service import get_matching_media_ids
 from backend.services.search_service import search_media_fts
@@ -7,6 +8,78 @@ from backend.services.media_service import get_media_item
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+async def _apply_image_for_overrides(
+    db: aiosqlite.Connection,
+    results: List[Union[AggregateResult, ItemResult]]
+) -> None:
+    """Override thumb_url for items that have tags matching image.for.<tag>."""
+    all_ids: List[str] = []
+    for r in results:
+        if isinstance(r, ItemResult):
+            all_ids.append(r.media.id)
+        elif isinstance(r, AggregateResult) and r.representative:
+            all_ids.append(r.representative.id)
+
+    if not all_ids:
+        return
+
+    placeholders = ",".join("?" * len(all_ids))
+    cursor = await db.execute(f"""
+        SELECT mt.media_id, t.full_tag
+        FROM media_tags mt
+        JOIN tags t ON t.id = mt.tag_id
+        WHERE mt.media_id IN ({placeholders})
+    """, all_ids)
+    tag_rows = await cursor.fetchall()
+
+    media_tags_map: Dict[str, List[str]] = {}
+    for mid, tag in tag_rows:
+        media_tags_map.setdefault(mid, []).append(tag)
+
+    cursor = await db.execute("""
+        SELECT t.full_tag, m.id, m.thumb_path
+        FROM tags t
+        JOIN media_tags mt ON t.id = mt.tag_id
+        JOIN media m ON mt.media_id = m.id
+        WHERE t.full_tag LIKE 'image.for.%'
+          AND m.media_type = 'image'
+          AND m.thumb_path IS NOT NULL
+    """)
+    cover_rows = await cursor.fetchall()
+
+    cover_map: Dict[str, List[str]] = {}
+    for full_tag, cover_id, _thumb_path in cover_rows:
+        stripped = full_tag[len("image.for."):]
+        cover_map.setdefault(stripped, []).append(cover_id)
+
+    if not cover_map:
+        return
+
+    for r in results:
+        if isinstance(r, ItemResult):
+            candidates = _get_cover_candidates(r.media.id, media_tags_map.get(r.media.id, []), cover_map)
+            if candidates:
+                r.media.thumb_url = f"/thumbs/{random.choice(candidates)}.webp"
+        elif isinstance(r, AggregateResult) and r.representative:
+            candidates = _get_cover_candidates(r.representative.id, media_tags_map.get(r.representative.id, []), cover_map)
+            if candidates:
+                r.representative.thumb_url = f"/thumbs/{random.choice(candidates)}.webp"
+
+
+def _get_cover_candidates(
+    media_id: str,
+    item_tags: List[str],
+    cover_map: Dict[str, List[str]]
+) -> List[str]:
+    """Return cover image IDs for item tags that have matching image.for.* entries."""
+    candidates: List[str] = []
+    for tag in item_tags:
+        for cover_id in cover_map.get(tag, []):
+            if cover_id != media_id:
+                candidates.append(cover_id)
+    return candidates
 
 async def browse_media(
     db: aiosqlite.Connection,
@@ -160,7 +233,6 @@ async def browse_media(
             elif k == "file_extension":
                 direct_media_items.sort(key=lambda x: (x.filename.rsplit('.', 1)[-1].lower() if '.' in (x.filename or '') else ''), reverse=reverse)
             elif k == "random":
-                import random
                 random.shuffle(direct_media_items)
             else: # default creation_date
                 direct_media_items.sort(key=lambda x: x.created_at or "", reverse=reverse)
@@ -174,6 +246,9 @@ async def browse_media(
     start_idx = (page - 1) * limit
     end_idx = start_idx + limit
     paginated_results = results[start_idx:end_idx]
+
+    # Apply image.for.<tag> cover overrides on the current page only
+    await _apply_image_for_overrides(db, paginated_results)
 
     return BrowseResponse(
         filter=filter_pattern,
