@@ -19,6 +19,11 @@ export class DetailModal {
         } catch (e) {
             this.expandedSections = new Set(['view', 'playlist', 'tags', 'info', 'actions']);
         }
+        try {
+            this._autoLaunch = localStorage.getItem('toxik_emu_autolaunch') === 'true';
+        } catch (e) {
+            this._autoLaunch = false;
+        }
 
         store.subscribe((state, changed) => {
             if (changed && changed.activeModalItem !== undefined) {
@@ -305,8 +310,14 @@ export class DetailModal {
                         ↗️ Open in Full Tab
                       </a>
                     </div>
-                    <div id="emulator-loading" style="width: 100%; flex: 1; background: #000; display: flex; align-items: center; justify-content: center;">
-                      <div style="color: var(--text-muted); font-family: system-ui, sans-serif; font-size: 0.9rem;">⌛ Connecting to EmulatorJS...</div>
+                    <div id="emulator-launch-overlay" style="width: 100%; flex: 1; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; cursor: pointer;">
+                      <div style="font-size: 6rem; animation: pulseGlow 2s infinite;">🎮</div>
+                      <h2 style="color: #fff; font-size: 1.3rem; word-break: break-all; text-align: center;">${item.filename}</h2>
+                      <p style="color: var(--text-secondary); margin-bottom: 4px;">${this._romSystem(item)}</p>
+                      <button id="btn-emulator-launch" class="btn btn-primary" style="padding: 12px 32px; font-size: 1.1rem; font-weight: 700; cursor: pointer;">▶ Launch Emulator</button>
+                    </div>
+                    <div id="emulator-loading" style="width: 100%; flex: 1; background: #000; display: none; align-items: center; justify-content: center;">
+                      <div style="color: var(--text-muted); font-family: system-ui, sans-serif; font-size: 0.9rem;">⌛ Loading EmulatorJS...</div>
                     </div>
                     <iframe id="emulator-iframe" data-media-id="${item.id}" style="width: 100%; flex: 1; border: none; background: #000; display: none;" allow="fullscreen"></iframe>
                   </div>
@@ -515,6 +526,16 @@ export class DetailModal {
                           <div style="margin-bottom: 8px;"><strong>Player:</strong> EmulatorJS (in-browser)</div>
                         ` : 'Not a ROM file.'}
                       </div>
+                      <button id="btn-emu-launch" class="btn" style="width: 100%; height: 36px; background: var(--accent-gradient); border: none; color: #fff; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px;">
+                        ▶ Launch
+                      </button>
+                      <a href="/api/emulation/${item.id}/play" target="_blank" rel="noopener noreferrer" class="btn" style="width: 100%; height: 36px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: #fff; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; text-decoration: none;">
+                        ↗️ Launch in New Tab
+                      </a>
+                      <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer; padding: 4px 0;">
+                        <input type="checkbox" id="checkbox-emu-autolaunch" ${this._autoLaunch ? 'checked' : ''} />
+                        Auto-Launch
+                      </label>
                     </div>
                   ` : ''}
                 </div>
@@ -727,8 +748,8 @@ export class DetailModal {
             }
         }
 
-        if (isGame && this._isRom(item)) {
-            this._initEmulatorPlayer(item);
+        if (isGame && this._isRom(item) && this._autoLaunch) {
+            this._launchEmulator(item);
         }
 
         this.updatePlaylistUI();
@@ -1008,6 +1029,23 @@ export class DetailModal {
                 alert('VR viewer coming soon — Canvas Mode spatial boards first!');
             });
         }
+
+        const emuLaunchBtn = this.container.querySelector('#btn-emulator-launch');
+        const emuSidebarBtn = this.container.querySelector('#btn-emu-launch');
+        const launch = () => {
+            const cur = store.get('activeModalItem');
+            if (cur) this._launchEmulator(cur);
+        };
+        if (emuLaunchBtn) emuLaunchBtn.addEventListener('click', launch);
+        if (emuSidebarBtn) emuSidebarBtn.addEventListener('click', launch);
+
+        const autoLaunchCb = this.container.querySelector('#checkbox-emu-autolaunch');
+        if (autoLaunchCb) {
+            autoLaunchCb.addEventListener('change', () => {
+                this._autoLaunch = autoLaunchCb.checked;
+                try { localStorage.setItem('toxik_emu_autolaunch', this._autoLaunch ? 'true' : 'false'); } catch (e) {}
+            });
+        }
     }
 
     async _loadTranscodeFormats(item) {
@@ -1178,15 +1216,20 @@ export class DetailModal {
         }
     }
 
-    async _initEmulatorPlayer(item) {
+    _launchEmulator(item) {
         const iframe = this.container.querySelector('#emulator-iframe');
         const loading = this.container.querySelector('#emulator-loading');
+        const overlay = this.container.querySelector('#emulator-launch-overlay');
         const link = this.container.querySelector('#emulator-fulltab-link');
-        if (!iframe || !loading) return;
+        if (!iframe || !loading || !overlay) return;
         const playUrl = `/api/emulation/${item.id}/play`;
+        overlay.style.display = 'none';
+        loading.style.display = 'flex';
         iframe.src = playUrl;
-        iframe.style.display = '';
-        loading.style.display = 'none';
+        iframe.onload = () => {
+            loading.style.display = 'none';
+            iframe.style.display = '';
+        };
         if (link) link.href = playUrl;
     }
 
