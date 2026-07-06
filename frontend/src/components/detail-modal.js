@@ -298,11 +298,17 @@ export class DetailModal {
                     `}
                   </div>
                 ` : isGame ? `
-                  <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); padding: 32px; text-align: center;">
-                    <div style="font-size: 6rem; margin-bottom: 24px; animation: pulseGlow 2s infinite;">🎮</div>
-                    <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 12px; word-break: break-all;">${item.filename}</h2>
-                    <p style="color: var(--text-secondary); max-width: 500px; margin-bottom: 24px;">ROM detected (${this._romSystem(item)}). In-browser emulator coming soon.</p>
-                    <a href="${mediaUrl}" download="${item.filename}" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; text-decoration: none;">⬇️ Download ROM File</a>
+                  <div style="width: 100%; height: 100%; display: flex; flex-direction: column; background: #111; position: relative;">
+                    <div style="padding: 10px 16px; background: #1a1a1a; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; z-index: 10;">
+                      <span style="color: var(--accent-cyan); font-weight: 700; font-size: 0.85rem;">🎮 Embedded EmulatorJS (${this._romSystem(item)})</span>
+                      <a id="emulator-fulltab-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="font-size: 0.75rem; padding: 4px 10px; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                        ↗️ Open in Full Tab
+                      </a>
+                    </div>
+                    <div id="emulator-loading" style="width: 100%; flex: 1; background: #000; display: flex; align-items: center; justify-content: center;">
+                      <div style="color: var(--text-muted); font-family: system-ui, sans-serif; font-size: 0.9rem;">⌛ Connecting to EmulatorJS...</div>
+                    </div>
+                    <iframe id="emulator-iframe" data-media-id="${item.id}" style="width: 100%; flex: 1; border: none; background: #000; display: none;" allow="fullscreen"></iframe>
                   </div>
                 ` : `
                   <img src="${mediaUrl}" alt="${item.filename}" style="max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: ${stretchFit};" />
@@ -504,7 +510,10 @@ export class DetailModal {
                   ${this.expandedSections.has('emu') ? `
                     <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
                       <div id="emu-info" style="font-size: 0.8rem; color: var(--text-secondary); padding: 8px 0;">
-                        ${this._isRom(item) ? `ROM detected (${this._romSystem(item)}). In-browser emulator coming soon.` : 'Not a ROM file.'}
+                        ${this._isRom(item) ? `
+                          <div style="margin-bottom: 8px;"><strong>System:</strong> ${this._romSystem(item)}</div>
+                          <div style="margin-bottom: 8px;"><strong>Player:</strong> EmulatorJS (in-browser)</div>
+                        ` : 'Not a ROM file.'}
                       </div>
                     </div>
                   ` : ''}
@@ -716,6 +725,10 @@ export class DetailModal {
             } else if (['Z-machine', 'Glulx', 'Blorb', 'TADS', 'TADS 3'].includes(fmt)) {
                 this._initParchmentPlayer(item);
             }
+        }
+
+        if (isGame && this._isRom(item)) {
+            this._initEmulatorPlayer(item);
         }
 
         this.updatePlaylistUI();
@@ -1075,7 +1088,15 @@ export class DetailModal {
 
     _isRom(item) {
         if (!item || !item.filename) return false;
-        const romExts = new Set(['.nes','.fds','.smc','.sfc','.gb','.gbc','.gba','.nds','.n64','.z64','.gen','.md','.smd','.pce','.sms','.gg','.ws','.wsc','.a26','.a78','.lnx','.j64','.ngp','.neo','.col','.int','.vb','.psx','.iso','.cue','.chd']);
+        const romExts = new Set([
+            '.nes','.fds','.unf','.smc','.sfc','.fig',
+            '.gb','.gbc','.gba','.nds','.3ds',
+            '.n64','.z64','.v64','.gen','.md','.smd',
+            '.pce','.sgx','.sms','.gg',
+            '.ws','.wsc','.a26','.a78','.lnx',
+            '.j64','.ngp','.neo','.col','.int','.vb',
+            '.psx','.ps1','.iso','.cue','.bin','.chd',
+        ]);
         const ext = item.filename.slice(item.filename.lastIndexOf('.')).toLowerCase();
         return romExts.has(ext);
     }
@@ -1083,7 +1104,21 @@ export class DetailModal {
     _romSystem(item) {
         if (!item || !item.filename) return '';
         const ext = item.filename.slice(item.filename.lastIndexOf('.')).toLowerCase();
-        const map = { '.nes':'NES','.fds':'FDS','.smc':'SNES','.sfc':'SNES','.gb':'Game Boy','.gbc':'Game Boy Color','.gba':'Game Boy Advance','.gen':'Genesis','.md':'Mega Drive','.n64':'Nintendo 64','.psx':'PlayStation','.nds':'Nintendo DS','.sms':'Master System','.gg':'Game Gear' };
+        const map = {
+            '.nes':'NES','.fds':'FDS','.unf':'NES',
+            '.smc':'SNES','.sfc':'SNES','.fig':'SNES',
+            '.gb':'Game Boy','.gbc':'Game Boy Color','.gba':'Game Boy Advance',
+            '.nds':'Nintendo DS','.3ds':'Nintendo 3DS',
+            '.n64':'Nintendo 64','.z64':'Nintendo 64','.v64':'Nintendo 64',
+            '.gen':'Genesis','.md':'Mega Drive','.smd':'Mega Drive',
+            '.pce':'PC Engine','.sgx':'PC Engine',
+            '.sms':'Master System','.gg':'Game Gear',
+            '.ws':'WonderSwan','.wsc':'WonderSwan Color',
+            '.a26':'Atari 2600','.a78':'Atari 7800','.lnx':'Atari Lynx',
+            '.j64':'Atari Jaguar','.ngp':'Neo Geo Pocket','.neo':'Neo Geo',
+            '.col':'ColecoVision','.int':'Intellivision','.vb':'Virtual Boy',
+            '.psx':'PlayStation','.ps1':'PlayStation',
+        };
         return map[ext] || 'Unknown';
     }
 
@@ -1141,6 +1176,18 @@ export class DetailModal {
         } catch (err) {
             loading.innerHTML = `<span style="color: #ff6b6b;">Failed to connect: ${err.message}</span>`;
         }
+    }
+
+    async _initEmulatorPlayer(item) {
+        const iframe = this.container.querySelector('#emulator-iframe');
+        const loading = this.container.querySelector('#emulator-loading');
+        const link = this.container.querySelector('#emulator-fulltab-link');
+        if (!iframe || !loading) return;
+        const playUrl = `/api/emulation/${item.id}/play`;
+        iframe.src = playUrl;
+        iframe.style.display = '';
+        loading.style.display = 'none';
+        if (link) link.href = playUrl;
     }
 
     async _initInkPlayer(item, forceRestart) {

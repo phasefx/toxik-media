@@ -117,6 +117,9 @@ export class ViewSortModal {
                     <button class="btn type-btn ${mediaType === 'fiction' ? 'active' : ''}" data-type="fiction" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; cursor: pointer; background: ${mediaType === 'fiction' ? 'var(--accent-gradient)' : (excludedTypes.has('fiction') ? '#ff4444' : 'rgba(255,255,255,0.04)')}; border: 1px solid ${mediaType === 'fiction' ? 'var(--accent-cyan)' : (excludedTypes.has('fiction') ? '#ff4444' : 'var(--border-color)')}; color: #fff; border-radius: 8px; font-size: 0.9rem; ${excludedTypes.has('fiction') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">
                       📖 Interactive Fiction
                     </button>
+                    <button class="btn type-btn ${mediaType === 'game' ? 'active' : ''}" data-type="game" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; cursor: pointer; background: ${mediaType === 'game' ? 'var(--accent-gradient)' : (excludedTypes.has('game') ? '#ff4444' : 'rgba(255,255,255,0.04)')}; border: 1px solid ${mediaType === 'game' ? 'var(--accent-cyan)' : (excludedTypes.has('game') ? '#ff4444' : 'var(--border-color)')}; color: #fff; border-radius: 8px; font-size: 0.9rem; ${excludedTypes.has('game') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">
+                      🎮 Games
+                    </button>
                   </div>
                 </div>
 

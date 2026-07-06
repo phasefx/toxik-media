@@ -340,7 +340,7 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
             mime_type = "application/octet-stream"
         elif ext in ROM_EXTS:
             media_type = "game"
-            mime_type = "application/x-rom"
+            mime_type = "application/octet-stream"
         else:
             media_type = "doc"
             if ext == ".md":

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     auto_unload: bool = True
     public_url: str = "http://localhost:8000"
     parchment_url: str = "http://localhost:8080"
+    emulatorjs_url: str = "http://localhost:8081"
 
     class Config:
         env_prefix = "TOXIK_"
