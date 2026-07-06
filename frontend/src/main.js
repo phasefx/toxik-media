@@ -110,12 +110,12 @@ class App {
             }
         });
 
-        // Initial Data Load
+        // Initial Data Load — resolve sticky catalog first, then load catalog-scoped data
+        await store.loadCatalogs();
         await Promise.all([
             store.loadTags(),
             store.loadBrowse(true),
-            store.loadWorkflowsAndJobs(),
-            store.loadCatalogs()
+            store.loadWorkflowsAndJobs()
         ]);
 
         // Auto-import configured watch directories on page load / reload
