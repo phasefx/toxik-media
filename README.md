@@ -88,7 +88,33 @@ For importing large local folders directly from terminal with rich progress bars
 ./import_cli.py /path/to/media/folder --dry-run
 ```
 
-### 5. Running Multiple Instances & Configuring Collections
+### 5. AI Cover Art Generation (Optional)
+
+For media that doesn't have a native thumbnail (audio, fiction, game ROMs, documents), `generate_covers.py` can create cover art via ComfyUI:
+
+```bash
+# Dry run — see what would be processed
+./generate_covers.py --toxik-url http://localhost:8000 --comfyui-url http://localhost:9988 --catalog my.db --workflow workflows/image_z_image_turbo.json --max-items 10 --dry-run
+
+# Generate covers
+./generate_covers.py --toxik-url http://localhost:8000 --comfyui-url http://localhost:9988 --catalog my.db --workflow workflows/image_z_image_turbo.json --max-items 50
+
+# Restrict to specific items
+./generate_covers.py --toxik-url http://localhost:8000 --comfyui-url http://localhost:9988 --catalog my.db --workflow workflows/image_z_image_turbo.json --filter="+game -orphan"
+```
+
+**How it works**:
+1. Queries Toxik for coverless media (audio, fiction, game, doc types without a thumbnail)
+2. Builds a text prompt from the filename + meaningful tags (auto-tags like `type:`, `ext:`, path prefixes are excluded)
+3. Injects the prompt + a random seed into a ComfyUI workflow and queues it
+4. Downloads the output image and imports it back into Toxik
+5. Tags the cover with `image.for.<tag>` for each meaningful tag, plus `image.for.id_<source_uuid>` for exact matching
+
+**Browse-time behavior**: When browsing, Toxik checks each media item for matching `image.for.*` covers. If a match is found, the cover's thumbnail is shown instead. Exact matches (`image.for.id_<uuid>`) take priority via random selection among all matching covers.
+
+**Note**: Requires a running ComfyUI instance and a workflow with a CLIPTextEncode node and a KSampler node (tested with `workflows/image_z_image_turbo.json`). Adjust `--rate-limit` and `--batch-delay` to avoid overloading the GPU.
+
+### 6. Running Multiple Instances & Configuring Collections
 
 You can run multiple instances of Toxik simultaneously with different media collections, listen addresses, and ports.
 
@@ -123,7 +149,7 @@ Or you could use one instance to switch between multiple catalogs/databases with
 ./import_cli.py /path/to/movies -c movies.db
 ```
 
-### 6. Optional: Interactive Fiction Player (Parchment)
+### 7. Optional: Interactive Fiction Player (Parchment)
 
 For Z-machine, Glulx, and TADS stories, Toxik embeds [Parchment](https://github.com/curiousdannii/parchment) in an iframe, but you need to install a local instance.
 
@@ -133,7 +159,7 @@ TOXIK_PARCHMENT_URL=http://192.168.1.78:8080 python -m backend.main
 
 Ink stories (`.ink.json`) are played directly in the browser via the embedded [inkjs](https://github.com/inkle/inkjs) runtime.
 
-### 7. Optional: Retro Game Emulation (EmulatorJS)
+### 8. Optional: Retro Game Emulation (EmulatorJS)
 
 For video game ROMs, Toxik serves a play page that loads [EmulatorJS](https://github.com/EmulatorJS/EmulatorJS) core from a self-hosted instance. You need to install this as well.
 
