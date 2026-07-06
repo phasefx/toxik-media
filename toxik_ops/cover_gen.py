@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import re
 import tempfile
 from pathlib import Path
@@ -22,6 +23,9 @@ from .client import ToxikClient, ComfyUIClient
 from .throttler import RateLimiter
 
 logger = logging.getLogger("toxik_ops.cover_gen")
+
+AUTO_TAG_PREFIXES = ("type:", "ext:", "id_", "Format.", "home.", "mnt.", "AI.")
+
 
 PROMPT_TEMPLATE = (
     "A visually striking album cover or thumbnail for '{title}', "
@@ -34,7 +38,11 @@ def _build_prompt(item: dict) -> str:
     filename = item.get("filename", "untitled")
     title = Path(filename).stem
     tags = item.get("tags") or []
-    keywords = ", ".join(tags[:5]) if tags else "abstract artistic elements"
+    meaningful = [
+        t for t in tags
+        if not t.startswith(AUTO_TAG_PREFIXES) and ":" not in t
+    ]
+    keywords = ", ".join(meaningful[:5]) if meaningful else f"{title} game cover art"
     return PROMPT_TEMPLATE.format(title=title, keywords=keywords)
 
 
@@ -73,22 +81,27 @@ class CoverGenerator:
     ) -> list[dict]:
         """Find media that don't have a real thumbnail.
 
-        Uses a heuristic via the browse endpoint: items with media_type
-        that doesn't generate thumbnails natively (audio, fiction, game, doc).
+        Queries media_types that don't generate thumbnails natively
+        (audio, fiction, game, doc) and caps the total to *limit*.
         """
+        per_type = max(1, limit // 4)
         results = []
         for mtype in ("audio", "fiction", "game", "doc"):
+            if len(results) >= limit:
+                break
             resp = await self.toxik.browse(
                 filter=filter,
                 media_type=mtype,
-                limit=limit,
+                limit=per_type,
                 sort_by="creation_date",
                 sort_dir="desc",
             )
             for r in resp.get("results", []):
                 if r.get("type") == "item":
                     results.append(r["media"])
-        return results
+                    if len(results) >= limit:
+                        break
+        return results[:limit]
 
     async def generate_cover(
         self,
@@ -103,6 +116,7 @@ class CoverGenerator:
         logger.info("Generating cover for %s: %s", item.get("id"), prompt_text)
 
         workflow = _inject_prompt(self.workflow, prompt_text)
+        _inject_seed(workflow)
         if self.dry_run:
             logger.info("[DRY RUN] Would queue prompt: %s", prompt_text)
             return "dry_run"
@@ -132,7 +146,11 @@ class CoverGenerator:
             Path(tmp_path).rename(out)
             result_path = str(out)
 
-        tags = [f"image.for.{t}" for t in (item.get("tags") or [])]
+        source_tags = item.get("tags") or []
+        tags = [
+            f"image.for.{t}" for t in source_tags
+            if not t.startswith(AUTO_TAG_PREFIXES) and ":" not in t
+        ]
         tags.append(f"image.for.id_{item['id']}")
 
         if not self.dry_run:
@@ -201,3 +219,15 @@ def _inject_prompt(workflow: dict, prompt_text: str) -> dict:
 
     logger.warning("Could not find a text input to inject prompt into workflow")
     return workflow
+
+
+def _inject_seed(workflow: dict) -> None:
+    """Set a random seed on the first KSampler node."""
+    for node_id, node in workflow.items():
+        if not isinstance(node, dict):
+            continue
+        if node.get("class_type") == "KSampler":
+            inputs = node.get("inputs", {})
+            if "seed" in inputs:
+                inputs["seed"] = random.randint(0, 2**31 - 1)
+                return

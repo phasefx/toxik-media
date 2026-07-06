@@ -283,8 +283,9 @@ export class DetailModal {
                           ↗️ Open in Full Tab
                         </a>
                       </div>
-                      <div id="parchment-loading" style="width: 100%; flex: 1; background: #000; display: flex; align-items: center; justify-content: center;">
-                        <div style="color: var(--text-muted); font-family: system-ui, sans-serif; font-size: 0.9rem;">⌛ Connecting to Parchment player...</div>
+                      <div id="parchment-loading" style="width: 100%; flex: 1; background: #000; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                        <img src="${item.thumb_url || ''}" onerror="this.style.display='none';" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.2; filter: blur(4px);" />
+                        <div style="color: var(--text-muted); font-family: system-ui, sans-serif; font-size: 0.9rem; position: relative; z-index: 1;">⌛ Connecting to Parchment player...</div>
                       </div>
                       <iframe id="parchment-iframe" data-media-id="${item.id}" style="width: 100%; flex: 1; border: none; background: #000; display: none;" allow="fullscreen"></iframe>
                     ` : this._ifFormat(item) === 'Ink' && item.filename && item.filename.toLowerCase().endsWith('.ink.json') ? `
@@ -301,11 +302,14 @@ export class DetailModal {
                         </div>
                       </div>
                     ` : `
-                      <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); padding: 32px; text-align: center;">
-                        <div style="font-size: 6rem; margin-bottom: 24px; animation: pulseGlow 2s infinite;">📖</div>
-                        <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 12px; word-break: break-all;">${item.filename}</h2>
-                        <p style="color: var(--text-secondary); max-width: 500px; margin-bottom: 24px;">This interactive fiction game is in the <strong>${this._ifFormat(item)}</strong> format, which is not supported by the in-browser player. You can download and run it locally with a compatible interpreter (such as Lectrote or Gargoyle).</p>
-                        <a href="${mediaUrl}" download="${item.filename}" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; text-decoration: none;">⬇️ Download Story File</a>
+                      <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; padding: 32px; text-align: center; position: relative; overflow: hidden;">
+                        <img src="${item.thumb_url || ''}" onerror="this.style.display='none';" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.2; filter: blur(4px);" />
+                        <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center;">
+                          <div style="font-size: 4rem; margin-bottom: 16px; animation: pulseGlow 2s infinite;">📖</div>
+                          <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 12px; word-break: break-all;">${item.filename}</h2>
+                          <p style="color: var(--text-secondary); max-width: 500px; margin-bottom: 24px;">This interactive fiction game is in the <strong>${this._ifFormat(item)}</strong> format, which is not supported by the in-browser player. You can download and run it locally with a compatible interpreter (such as Lectrote or Gargoyle).</p>
+                          <a href="${mediaUrl}" download="${item.filename}" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; text-decoration: none;">⬇️ Download Story File</a>
+                        </div>
                       </div>
                     `}
                   </div>
@@ -317,11 +321,20 @@ export class DetailModal {
                         ↗️ Open in Full Tab
                       </a>
                     </div>
-                    <div id="emulator-launch-overlay" style="width: 100%; flex: 1; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; cursor: pointer;">
-                      <div style="font-size: 6rem; animation: pulseGlow 2s infinite;">🎮</div>
-                      <h2 style="color: #fff; font-size: 1.3rem; word-break: break-all; text-align: center;">${item.filename}</h2>
-                      <p style="color: var(--text-secondary); margin-bottom: 4px;">${this._romSystem(item)}</p>
-                      <button id="btn-emulator-launch" class="btn btn-primary" style="padding: 12px 32px; font-size: 1.1rem; font-weight: 700; cursor: pointer;">▶ Launch Emulator</button>
+                    <div id="emulator-launch-overlay" style="width: 100%; flex: 1; background: #000; position: relative; overflow: hidden; cursor: pointer;">
+                      <div style="position: absolute; inset: 0; background: #000;">
+                        <img src="${item.thumb_url || ''}" onerror="this.style.display='none';" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.35; filter: blur(4px);" />
+                        <img src="${item.thumb_url || ''}" onerror="this.style.display='none';" style="position: absolute; inset: 0; margin: auto; max-width: 70%; max-height: 70%; object-fit: contain; border-radius: var(--radius-md); box-shadow: 0 10px 40px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.15);" />
+                      </div>
+                      <div class="emu-hover-content" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.25s ease;">
+                        <div style="font-size: 5rem; animation: pulseGlow 2s infinite;">🎮</div>
+                        <h2 style="color: #fff; font-size: 1.3rem; word-break: break-all; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,0.9);">${item.filename}</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 4px;">${this._romSystem(item)}</p>
+                        <button id="btn-emulator-launch" class="btn btn-primary" style="padding: 12px 32px; font-size: 1.1rem; font-weight: 700; cursor: pointer; pointer-events: auto;">▶ Launch Emulator</button>
+                      </div>
+                      <style>
+                        #emulator-launch-overlay:hover .emu-hover-content { opacity: 1; }
+                      </style>
                     </div>
                     <div id="emulator-loading" style="width: 100%; flex: 1; background: #000; display: none; align-items: center; justify-content: center;">
                       <div style="color: var(--text-muted); font-family: system-ui, sans-serif; font-size: 0.9rem;">⌛ Loading EmulatorJS...</div>
