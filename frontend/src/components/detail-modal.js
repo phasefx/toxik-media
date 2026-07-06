@@ -194,6 +194,8 @@ export class DetailModal {
         if (!item) {
             this.container.innerHTML = '';
             this.container.style.display = 'none';
+            this._emuLaunched = false;
+            this._emuLaunchedId = null;
             return;
         }
 
@@ -239,6 +241,11 @@ export class DetailModal {
         const isGame = item.media_type === 'game';
         const isFiction = item.media_type === 'fiction';
         const isPlayable = !isDoc && !isGame && !isFiction;
+
+        if (item.id !== this._emuLaunchedId) {
+            this._emuLaunched = false;
+            this._emuLaunchedId = null;
+        }
         const isImageOrVideo = item.media_type === 'image' || item.media_type === 'video';
         const stretchFit = store.get('mediaStretchFit') ? 'cover' : 'contain';
 
@@ -748,8 +755,10 @@ export class DetailModal {
             }
         }
 
-        if (isGame && this._isRom(item) && this._autoLaunch) {
-            this._launchEmulator(item);
+        if (isGame && this._isRom(item)) {
+            if (this._autoLaunch || this._emuLaunched) {
+                this._launchEmulator(item);
+            }
         }
 
         this.updatePlaylistUI();
@@ -781,16 +790,33 @@ export class DetailModal {
         const closeBtn = this.container.querySelector('#btn-close-modal');
         const backdrop = this.container.querySelector('.modal-backdrop');
 
+        const emuRunning = () => this._emuLaunched && store.get('activeModalItem')?.media_type === 'game';
+        const emuConfirm = (msg) => !emuRunning() || confirm(msg);
+
         const close = () => store.set({ activeModalItem: null });
-        if (closeBtn) closeBtn.addEventListener('click', close);
+        if (closeBtn) closeBtn.addEventListener('click', () => {
+            if (!emuConfirm('A game is currently running. Close it and lose unsaved progress?')) return;
+            close();
+        });
         if (backdrop) backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) close();
+            if (e.target === backdrop) {
+                if (!emuConfirm('A game is currently running. Close it and lose unsaved progress?')) return;
+                close();
+            }
         });
 
         const prevBtn = this.container.querySelector('#btn-modal-prev');
         const nextBtn = this.container.querySelector('#btn-modal-next');
-        if (prevBtn) prevBtn.addEventListener('click', (e) => { e.stopPropagation(); this.stepAdjacentMedia(-1); });
-        if (nextBtn) nextBtn.addEventListener('click', (e) => { e.stopPropagation(); this.stepAdjacentMedia(1); });
+        if (prevBtn) prevBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!emuConfirm('A game is currently running. Navigate away and lose unsaved progress?')) return;
+            this.stepAdjacentMedia(-1);
+        });
+        if (nextBtn) nextBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!emuConfirm('A game is currently running. Navigate away and lose unsaved progress?')) return;
+            this.stepAdjacentMedia(1);
+        });
 
         const prevPl = this.container.querySelector('#btn-modal-prev-pl');
         const playPl = this.container.querySelector('#btn-modal-play-pl');
@@ -930,6 +956,7 @@ export class DetailModal {
 
         this.container.querySelectorAll('.accordion-header').forEach(hdr => {
             hdr.addEventListener('click', () => {
+                if (this._emuLaunched && store.get('activeModalItem')?.media_type === 'game') return;
                 const sec = hdr.getAttribute('data-section');
                 if (this.expandedSections.has(sec)) {
                     this.expandedSections.delete(sec);
@@ -947,6 +974,7 @@ export class DetailModal {
         const stretchBtn = this.container.querySelector('#btn-toggle-stretch-media');
         if (stretchBtn) {
             stretchBtn.addEventListener('click', () => {
+                if (this._emuLaunched && store.get('activeModalItem')?.media_type === 'game') return;
                 store.setMediaStretchFit(!store.get('mediaStretchFit'));
                 this.render(item);
             });
@@ -1217,6 +1245,8 @@ export class DetailModal {
     }
 
     _launchEmulator(item) {
+        this._emuLaunched = true;
+        this._emuLaunchedId = item.id;
         const iframe = this.container.querySelector('#emulator-iframe');
         const loading = this.container.querySelector('#emulator-loading');
         const overlay = this.container.querySelector('#emulator-launch-overlay');
