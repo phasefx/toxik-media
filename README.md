@@ -1,13 +1,15 @@
 # Toxik 🧪
 
-> A self-hosted, local-first media gallery and generative AI frontend featuring hierarchical compound tagging, infinite scroll, and ComfyUI workflow integration.
+> A self-hosted, local-first media gallery and generative AI frontend featuring hierarchical compound tagging, infinite scroll, ComfyUI workflow integration, in-browser interactive fiction playback, and retro-gaming emulation.
 
-Vibe-coded. Media support includes video, images, audio, text, Markdown, PDF, source code, and e-books.
+Vibe-coded. Media support includes video, images, audio, text, Markdown, PDF, source code, e-books, interactive fiction (Z-machine, Glulx, TADS, Ink), and video game ROMs (NES, SNES, Game Boy, Genesis, PlayStation, and more).
 
 ---
 
 ## Highlights & Features
 
+- **Interactive Fiction Player**: Play Z-machine, Glulx, Blorb, TADS, and Ink stories directly in the browser via Parchment or embedded InkJS — no interpreter needed.
+- **Retro Game Emulation**: Launch NES, SNES, Game Boy, Genesis, PlayStation, and dozens more ROM formats in-browser via EmulatorJS. Configurable `TOXIK_EMULATORJS_URL` (default `http://localhost:8081`).
 - **Hierarchical Compound Tagging**: Organize media with dot-delimited tags (e.g., `Person.Jake`, `Movie.Clip.Short`). Use a tree view or a tag cloud for navigation.
 - **Aggregated Drill-Down Navigation**: Filtering on `Person` groups all `Jake` items into a single representative aggregate card. Click to drill down into `Person.Jake`.
 - **Wildcard Queries**: Supports prefix matching by default as well as advanced glob filtering (`*.Clip`, `**.Clip`).
@@ -15,13 +17,15 @@ Vibe-coded. Media support includes video, images, audio, text, Markdown, PDF, so
   - **▦ Compact Grid**: Fixed-width square cells with center cropping and hover scale animations.
   - **▧ Montage / Masonry**: JS-based column packing maintaining native aspect ratios without overlapping.
   - **▣ Full Viewport Feed**: Single-item vertical scroll.
-  - **▣ Simple List**: Single-item vertical scroll.
-- **Media Type Toggles**: Instantly switch between broad media types across all view modes and aggregate group counts.
+  - **☰ Simple List**: Compact list view.
+- **Media Type Filters**: Instantly switch between image, video, audio, document, interactive fiction, and game ROM views.
 - **AI Generative Hub**: Integration with ComfyUI workflows (Text-to-Image, Image-to-Video, Video-to-Video, etc.) with dynamic input parameter forms and real-time WebSocket progress tracking.
 - **Batch Tagging & Range Selection**: Multi-select items via checkboxes or click cards while holding **Shift** for fast range selection to batch add, remove, or clear tags.
+- **Transcoding**: Convert between image, video, and audio formats directly from the detail modal.
 - **Smart & Automatic Import Tagging**: During directory or file ingestion, items are automatically tagged with their full directory path as a hierarchical compound tag (e.g., `home.coding.git.toxik.samples.beach`), along with any optional custom tag specified at prompt time.
 - **SHA-256 Deduplication**: Automatically detects duplicate imports across different directories or filenames.
 - **Cross-Browser & VR Headset Compatibility**: Progressive enhancement designed to run smoothly on desktop Firefox, Meta Quest Browser, and Vanadium (GrapheneOS) with responsive 44px tap targets and unified Pointer Events.
+- **Multiple Catalogs**: Switch between independent databases/collections within the GUI without restarting.
 
 ---
 
@@ -119,8 +123,25 @@ Or you could use one instance to switch between multiple catalogs/databases with
 ./import_cli.py /path/to/movies -c movies.db
 ```
 
----
+### 6. Optional: Interactive Fiction Player (Parchment)
 
+For Z-machine, Glulx, and TADS stories, Toxik embeds [Parchment](https://github.com/curiousdannii/parchment) in an iframe, but you need to install a local instance.
+
+```bash
+TOXIK_PARCHMENT_URL=http://192.168.1.78:8080 python -m backend.main
+```
+
+Ink stories (`.ink.json`) are played directly in the browser via the embedded [inkjs](https://github.com/inkle/inkjs) runtime.
+
+### 7. Optional: Retro Game Emulation (EmulatorJS)
+
+For video game ROMs, Toxik serves a play page that loads [EmulatorJS](https://github.com/EmulatorJS/EmulatorJS) core from a self-hosted instance. You need to install this as well.
+
+```bash
+TOXIK_EMULATORJS_URL=http://192.168.1.78:8081 python -m backend.main
+```
+
+---
 
 ## Tagging Architecture & Examples
 
@@ -135,20 +156,42 @@ Or you could use one instance to switch between multiple catalogs/databases with
 
 ---
 
+## Supported Formats
+
+| Category | Extensions | Player |
+|----------|-----------|--------|
+| Image | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.bmp`, `.tiff` | Native browser |
+| Video | `.mp4`, `.mov`, `.webm`, `.mkv`, `.avi` | Native browser |
+| Audio | `.mp3`, `.wav`, `.flac`, `.ogg`, `.m4a`, `.aac`, `.opus` | Native browser |
+| Document | `.md`, `.txt`, `.epub`, `.pdf`, `.html`, `.htm`, `.rst`, source code, log files | Highlight.js / epubjs / iframe |
+| Interactive Fiction | `.z1`–`.z8`, `.zblorb`, `.blorb`, `.gblorb`, `.blb`, `.ulx`, `.gam`, `.t3`, `.ink`, `.ink.json` | Parchment (Z-machine/Glulx/TADS) or InkJS (Ink) |
+| Game ROM | `.nes`, `.fds`, `.smc`, `.sfc`, `.gb`, `.gbc`, `.gba`, `.nds`, `.3ds`, `.n64`, `.z64`, `.v64`, `.gen`, `.md`, `.smd`, `.pce`, `.sms`, `.gg`, `.ws`, `.wsc`, `.a26`, `.a78`, `.lnx`, `.j64`, `.ngp`, `.neo`, `.col`, `.int`, `.vb`, `.psx`, `.ps1`, `.iso`, `.cue`, `.bin`, `.chd` | EmulatorJS |
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TOXIK_HOST` | `0.0.0.0` | Backend bind address |
+| `TOXIK_PORT` | `8000` | Backend port |
+| `TOXIK_DATA_DIR` | `./data` | Media storage directory |
+| `TOXIK_DB_PATH` | `<data_dir>/toxik.db` | SQLite database path |
+| `TOXIK_PUBLIC_URL` | `http://localhost:8000` | Public-facing backend URL (used for player URLs) |
+| `TOXIK_PARCHMENT_URL` | `http://localhost:8080` | Parchment IF player URL |
+| `TOXIK_EMULATORJS_URL` | `http://localhost:8081` | EmulatorJS server URL |
+| `TOXIK_COMFYUI_HOST` | `localhost` | ComfyUI hostname |
+| `TOXIK_COMFYUI_PORT` | `8188` | ComfyUI port |
+
+---
+
 ## Privacy Caveat
 
-One installed, we don't pull remote fonts, scripts, 3rd party metadata, etc. However, ComfyUI, itself, is able to reach out to 3rd party hosts depending on your workflows and customizations. And if you're using Windows, Firefox, or Chrome, there is likely telemetry there you should be aware of. And at some point I will want to add a mechanism for pulling cover art for music and ebooks.
+Once installed, Toxik doesn't pull remote fonts, scripts, or 3rd party metadata. However, ComfyUI itself may reach out to 3rd party hosts depending on your workflows and customizations. Parchment and EmulatorJS run from your own self-hosted instances, but the latter may reach out to the CDN for Retroarch cores and I think a version check. If you're using Windows, Firefox, or Chrome, there is likely telemetry there you should be aware of.
 
-## TODO: Canvas Mode 2.0
-Toxik 1.0 includes architectural foundations for persistent spatial boards (Canvas Mode 2.0):
-- Reserved `canvas.*` tag namespace.
-- Transform-based positioning pipeline.
-- Z-index layering preparation.
+---
 
-## TODO: In-browser emulation for retro-gaming.
+## TODO: Canvas Mode for persistent spatial boards where you place the media.
 
-## TODO: Interactive fiction / text adventure game support.
+## TODO: VR environment and psuedo-stereograms for 2d media.
 
-## TODO: Transcoding.
-
-## TODO: VR support including psuedo-stereograms for 2d media.
