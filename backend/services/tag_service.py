@@ -284,7 +284,8 @@ async def get_matching_media_ids(db: aiosqlite.Connection, filter_pattern: Optio
     for mid, (fname, mtype) in valid_media_map.items():
         ext_tag = f"ext:{fname.rsplit('.', 1)[-1].lower()}" if fname and "." in fname else "ext:none"
         type_tag = f"type:{mtype}" if mtype else "type:unknown"
-        media_all_tags[mid] = [type_tag, ext_tag]
+        id_tag = f"id_{mid}"
+        media_all_tags[mid] = [type_tag, ext_tag, id_tag]
 
     for row in rows:
         mid = row["media_id"]

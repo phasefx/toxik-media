@@ -35,6 +35,8 @@ async def _apply_image_for_overrides(
     tag_rows = await cursor.fetchall()
 
     media_tags_map: Dict[str, List[str]] = {}
+    for mid in all_ids:
+        media_tags_map.setdefault(mid, []).append(f"id_{mid}")
     for mid, tag in tag_rows:
         media_tags_map.setdefault(mid, []).append(tag)
 

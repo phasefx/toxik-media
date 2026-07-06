@@ -435,7 +435,28 @@ export class DetailModal {
                   ` : ''}
                 </div>
 
-                <!-- Section 3: Metadata Details -->
+                <!-- Section 3: Links -->
+                <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                  <div class="accordion-header" data-section="links" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                    <span>🔗 Links</span>
+                    <span>${this.expandedSections.has('links') ? '▼' : '▶'}</span>
+                  </div>
+                  ${this.expandedSections.has('links') ? `
+                    <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+                      <div style="font-size: 0.8rem; color: var(--text-secondary); padding: 4px 0;">
+                        Browse media linked via <code style="color: var(--accent-cyan);">image.for.*</code> cover assignments.
+                      </div>
+                      <button class="btn linked-btn" data-direction="to" style="background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); color: var(--accent-cyan); height: 36px; font-weight: 600; font-size: 0.85rem; width: 100%;">
+                        ← Linked To (covers for this)
+                      </button>
+                      <button class="btn linked-btn" data-direction="from" style="background: rgba(255, 204, 0, 0.15); border: 1px solid rgba(255, 204, 0, 0.4); color: #ffcc00; height: 36px; font-weight: 600; font-size: 0.85rem; width: 100%;">
+                        → Linked From (this covers)
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Section 4: Metadata Details -->
                 <div class="sidebar-section" style="border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
                   <div class="accordion-header" data-section="info" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
                     <span>ℹ️ Technical Specs</span>
@@ -1043,6 +1064,44 @@ export class DetailModal {
                 }
             });
         }
+
+        // ── Link Buttons ──
+        const linkBtns = this.container.querySelectorAll('.linked-btn');
+        linkBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const cur = store.get('activeModalItem');
+                if (!cur) return;
+                const dir = btn.dataset.direction;
+                const tags = cur.tags || [];
+                const id = cur.id;
+
+                let queryTerms = [];
+                if (dir === 'to') {
+                    // Find covers FOR this media: image.for.<each_tag> + image.for.id_<id>
+                    queryTerms.push(`+image.for.id_${id}`);
+                    for (const tag of tags) {
+                        queryTerms.push(`+image.for.${tag}`);
+                    }
+                } else {
+                    // Find WHAT this media covers: for each image.for.<tag>, strip prefix
+                    for (const tag of tags) {
+                        if (tag.startsWith('image.for.')) {
+                            queryTerms.push(`+${tag.slice('image.for.'.length)}`);
+                        }
+                    }
+                    // Also include bare id_<id> as a target (other media might have image.for.id_<this_id>)
+                    // But the real target is media with id_<id> virtual tag, which can't be searched directly.
+                    // However, we CAN search for the cover assignment direction: image.for.id_<this_id>
+                    // That's already covered by "Linked To". So for "Linked From" we focus on image.for.*
+                }
+
+                const query = queryTerms.join(' ');
+                store.set({ isDetailOpen: false });
+                if (query) {
+                    await store.setSearchQuery(query);
+                }
+            });
+        });
 
         const stereoBtn = this.container.querySelector('#btn-stereogram');
         if (stereoBtn) {
