@@ -150,6 +150,19 @@ export const api = {
         });
     },
 
+    async uploadMedia(files, tags = []) {
+        const formData = new FormData();
+        for (const f of files) {
+            formData.append('files', f);
+        }
+        formData.append('tags', tags.join(','));
+        return def_fetch('/api/media/upload', {
+            method: 'POST',
+            body: formData,
+            headers: {}
+        }, { skipCounting: true });
+    },
+
     async getMedia(mediaId) {
         return def_fetch(`/api/media/${mediaId}`);
     },

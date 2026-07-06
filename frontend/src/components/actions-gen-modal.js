@@ -53,12 +53,31 @@ export class ActionsGenModal {
               <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
 
                 <!-- Action 1: Import Media -->
-                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-                  <div style="flex: 1;">
-                    <h4 style="margin: 0 0 4px 0; color: #fff; font-size: 0.95rem; font-weight: 700;">📥 Import Media</h4>
-                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4;">Add new files or watch directories to the database catalog. You can optionally apply tags on ingest.</p>
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px;">
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1;">
+                      <h4 style="margin: 0 0 4px 0; color: #fff; font-size: 0.95rem; font-weight: 700;">📥 Import Media</h4>
+                      <p style="margin: 0; color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4;">Upload files from your computer or import from a server-side path.</p>
+                    </div>
                   </div>
-                  <button class="btn" id="btn-import" style="min-width: 140px; height: 38px; font-size: 0.85rem; font-weight: 600;">Import Files</button>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn" id="btn-import-files" style="min-width: 120px; height: 36px; font-size: 0.85rem; font-weight: 600;">📄 Import Files</button>
+                    <button class="btn" id="btn-import-folder" style="min-width: 120px; height: 36px; font-size: 0.85rem; font-weight: 600; border-color: rgba(255, 204, 0, 0.4); color: #ffcc00; background: rgba(255, 204, 0, 0.05);">📁 Import Folder</button>
+                    <button class="btn" id="btn-import-server" style="min-width: 120px; height: 36px; font-size: 0.85rem; font-weight: 600; border-color: rgba(0, 200, 255, 0.4); color: #00c8ff; background: rgba(0, 200, 255, 0.05);">🖥️ Server Path</button>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;">
+                      <input type="checkbox" id="chk-recurse" checked style="accent-color: var(--accent-cyan);" />
+                      Recurse subdirectories
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 180px;">
+                      <span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">Tags:</span>
+                      <input type="text" id="inp-import-tags" placeholder="Optional.Tag.Here" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;" />
+                    </div>
+                    <span id="import-status" style="font-size: 0.8rem; color: var(--accent-green); min-height: 1.2em;"></span>
+                  </div>
+                  <input type="file" id="file-picker" multiple accept="*/*" style="display:none" />
+                  <input type="file" id="folder-picker" webkitdirectory style="display:none" />
                 </div>
 
                 <!-- Action 2: Re-Ingest -->
@@ -118,27 +137,105 @@ export class ActionsGenModal {
             }
         });
 
-        // ── Import Media Handler ──
-        const importBtn = this.container.querySelector('#btn-import');
-        if (importBtn) {
-            importBtn.addEventListener('click', async () => {
+        // ── Import Media Handlers ──
+        const filePicker = this.container.querySelector('#file-picker');
+        const folderPicker = this.container.querySelector('#folder-picker');
+        const statusEl = this.container.querySelector('#import-status');
+        const tagsInput = this.container.querySelector('#inp-import-tags');
+        const recurseChk = this.container.querySelector('#chk-recurse');
+
+        function getImportTags() {
+            const val = tagsInput ? tagsInput.value.trim() : '';
+            return val ? val.split(',').map(t => t.trim()).filter(Boolean) : [];
+        }
+
+        function showStatus(msg, isError = false) {
+            if (statusEl) {
+                statusEl.textContent = msg;
+                statusEl.style.color = isError ? '#ff4444' : 'var(--accent-green)';
+                setTimeout(() => { if (statusEl.textContent === msg) statusEl.textContent = ''; }, 8000);
+            }
+        }
+
+        async function doUpload(files, label) {
+            const tags = getImportTags();
+            try {
+                if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(1);
+                const res = await api.uploadMedia(files, tags);
+                showStatus(`✅ Imported ${res.length} file(s)${tags.length ? ` as "${tags.join(', ')}"` : ''}`);
+                await store.loadBrowse(true);
+                await store.loadTags();
+            } catch (err) {
+                showStatus(`❌ Import failed: ${err.message}`, true);
+            } finally {
+                if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(0);
+            }
+        }
+
+        // Import Files
+        const importFilesBtn = this.container.querySelector('#btn-import-files');
+        if (importFilesBtn && filePicker) {
+            importFilesBtn.addEventListener('click', () => {
+                filePicker.value = '';
+                filePicker.click();
+            });
+            filePicker.addEventListener('change', async () => {
+                const files = filePicker.files;
+                if (files && files.length > 0) {
+                    showStatus(`⏳ Uploading ${files.length} file(s)...`);
+                    await doUpload(Array.from(files), 'Import Files');
+                }
+            });
+        }
+
+        // Import Folder
+        const importFolderBtn = this.container.querySelector('#btn-import-folder');
+        if (importFolderBtn && folderPicker) {
+            importFolderBtn.addEventListener('click', () => {
+                folderPicker.value = '';
+                folderPicker.click();
+            });
+            folderPicker.addEventListener('change', async () => {
+                const files = folderPicker.files;
+                if (files && files.length > 0) {
+                    const recurse = recurseChk ? recurseChk.checked : true;
+                    let selected = Array.from(files);
+                    if (!recurse) {
+                        selected = selected.filter(f => {
+                            const rel = f.webkitRelativePath || '';
+                            return !rel.includes('/');
+                        });
+                    }
+                    if (selected.length === 0) {
+                        showStatus('No files found at the root level.', true);
+                        return;
+                    }
+                    showStatus(`⏳ Uploading ${selected.length} file(s) from folder...`);
+                    await doUpload(selected, 'Import Folder');
+                }
+            });
+        }
+
+        // Server Path (existing prompt-based import)
+        const serverBtn = this.container.querySelector('#btn-import-server');
+        if (serverBtn) {
+            serverBtn.addEventListener('click', async () => {
                 const path = prompt('Enter absolute directory or file path to import (e.g. /home/coding/git/toxik/samples):');
                 if (path && path.trim()) {
-                    const tagPrompt = prompt('Optional tag to assign to imported media (leave blank for none, e.g. Import.Vacation):', '');
-                    const tagsToApply = tagPrompt && tagPrompt.trim() ? [tagPrompt.trim()] : [];
+                    const tags = getImportTags();
                     try {
-                        importBtn.textContent = '⏳ Importing...';
-                        importBtn.disabled = true;
+                        serverBtn.textContent = '⏳ Importing...';
+                        serverBtn.disabled = true;
                         if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(1);
-                        const res = await api.importMedia([path.trim()], tagsToApply);
-                        alert(`Successfully imported ${res.length} media items!${tagsToApply.length ? ` Tagged as "${tagsToApply[0]}".` : ''}`);
+                        const res = await api.importMedia([path.trim()], tags);
+                        showStatus(`✅ Imported ${res.length} file(s)${tags.length ? ` as "${tags.join(', ')}"` : ''}`);
                         await store.loadBrowse(true);
                         await store.loadTags();
                     } catch (err) {
-                        alert(`Import failed: ${err.message}`);
+                        showStatus(`❌ Import failed: ${err.message}`, true);
                     } finally {
-                        importBtn.textContent = 'Import Files';
-                        importBtn.disabled = false;
+                        serverBtn.textContent = '🖥️ Server Path';
+                        serverBtn.disabled = false;
                         if (typeof window !== 'undefined' && window.setAppExpectedRequests) window.setAppExpectedRequests(0);
                     }
                 }

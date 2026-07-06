@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse
 import aiosqlite
 from typing import List, Optional
 import os
+from pathlib import Path
 from backend.models.database import get_db
 from backend.models.schemas import MediaItem, MediaImportRequest, BatchTagRequest
 from backend.services.media_service import import_media, get_media_item, delete_media_item, batch_tag_media, extract_video_frame
@@ -14,6 +15,31 @@ router = APIRouter(prefix="/api/media", tags=["media"])
 @router.post("/import", response_model=List[MediaItem])
 async def import_media_files(request: MediaImportRequest, db: aiosqlite.Connection = Depends(get_db)):
     items = await import_media(db, request.paths, request.tags)
+    return items
+
+@router.post("/upload", response_model=List[MediaItem])
+async def upload_media_files(
+    tags: str = Form(""),
+    files: List[UploadFile] = File(...),
+    db: aiosqlite.Connection = Depends(get_db)
+):
+    from backend.config import settings
+    import uuid
+
+    incoming_dir = settings.data_dir / "incoming"
+    incoming_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_paths = []
+    for f in files:
+        ext = Path(f.filename).suffix if f.filename else ""
+        unique_name = f"{uuid.uuid4()}{ext}"
+        dest = incoming_dir / unique_name
+        content = await f.read()
+        dest.write_bytes(content)
+        saved_paths.append(str(dest))
+
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    items = await import_media(db, saved_paths, tag_list)
     return items
 
 @router.get("/{media_id}", response_model=MediaItem)
@@ -87,7 +113,6 @@ async def transcode_media_endpoint(
             raise HTTPException(status_code=500, detail="Transcoding succeeded but import into library failed")
         return imported[0]
 
-    from pathlib import Path
     from mimetypes import guess_type
     mime, _ = guess_type(out_path)
     return FileResponse(
@@ -115,7 +140,6 @@ async def upload_media_to_comfyui(media_id: str, db: aiosqlite.Connection = Depe
     if not item or not os.path.exists(item.filepath):
         raise HTTPException(status_code=404, detail="Media file not found on disk")
     try:
-        from pathlib import Path
         from backend.config import settings
         from backend.services.comfyui_service import upload_to_comfyui
         res = await upload_to_comfyui(Path(item.filepath), settings.comfyui_host, settings.comfyui_port)
