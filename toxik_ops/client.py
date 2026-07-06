@@ -141,6 +141,15 @@ class ToxikClient:
     async def get_health(self) -> dict:
         return await self._request("GET", "/api/health")
 
+    async def list_catalogs(self) -> list[dict]:
+        return await self._request("GET", "/api/catalogs")
+
+    async def switch_catalog(self, name: str) -> dict:
+        return await self._request(
+            "POST", "/api/catalogs/switch",
+            json_data={"name": name},
+        )
+
 
 class ComfyUIClient:
     """Async client for ComfyUI API (queue prompt, poll history, download images)."""

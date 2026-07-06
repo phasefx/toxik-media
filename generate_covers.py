@@ -59,6 +59,10 @@ async def main():
         "--rate-limit", type=float, default=2.0,
         help="Max API requests per second (default: 2.0)",
     )
+    parser.add_argument(
+        "--catalog",
+        help="Switch to this catalog before running (e.g. project2.db)",
+    )
 
     args = parser.parse_args()
 
@@ -70,6 +74,10 @@ async def main():
     workflow = json.loads(workflow_path.read_text())
 
     toxik = ToxikClient(base_url=args.toxik_url, rate_limit=args.rate_limit)
+
+    if args.catalog:
+        logger.info("Switching to catalog: %s", args.catalog)
+        await toxik.switch_catalog(args.catalog)
     comfyui = ComfyUIClient(base_url=args.comfyui_url, rate_limit=args.rate_limit)
 
     gen = CoverGenerator(
