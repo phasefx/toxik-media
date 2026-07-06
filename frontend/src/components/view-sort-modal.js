@@ -114,6 +114,9 @@ export class ViewSortModal {
                     <button class="btn type-btn ${mediaType === 'doc' ? 'active' : ''}" data-type="doc" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; cursor: pointer; background: ${mediaType === 'doc' ? 'var(--accent-gradient)' : (excludedTypes.has('doc') ? '#ff4444' : 'rgba(255,255,255,0.04)')}; border: 1px solid ${mediaType === 'doc' ? 'var(--accent-cyan)' : (excludedTypes.has('doc') ? '#ff4444' : 'var(--border-color)')}; color: #fff; border-radius: 8px; font-size: 0.9rem; ${excludedTypes.has('doc') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">
                       📄 Documents
                     </button>
+                    <button class="btn type-btn ${mediaType === 'fiction' ? 'active' : ''}" data-type="fiction" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; cursor: pointer; background: ${mediaType === 'fiction' ? 'var(--accent-gradient)' : (excludedTypes.has('fiction') ? '#ff4444' : 'rgba(255,255,255,0.04)')}; border: 1px solid ${mediaType === 'fiction' ? 'var(--accent-cyan)' : (excludedTypes.has('fiction') ? '#ff4444' : 'var(--border-color)')}; color: #fff; border-radius: 8px; font-size: 0.9rem; ${excludedTypes.has('fiction') ? 'text-decoration: line-through; opacity: 0.9;' : ''}">
+                      📖 Interactive Fiction
+                    </button>
                   </div>
                 </div>
 

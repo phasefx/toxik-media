@@ -97,8 +97,9 @@ async def transcode_media_endpoint(
         content_disposition_type="attachment",
     )
 
+@router.get("/{media_id}/file/{rest:path}")
 @router.get("/{media_id}/file")
-async def serve_media_file(media_id: str, db: aiosqlite.Connection = Depends(get_db)):
+async def serve_media_file(media_id: str, rest: str = "", db: aiosqlite.Connection = Depends(get_db)):
     item = await get_media_item(db, media_id)
     if not item or not os.path.exists(item.filepath):
         raise HTTPException(status_code=404, detail="Media file not found on disk")

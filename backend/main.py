@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from backend.config import settings
 from backend.models.database import init_db
-from backend.routers import media, tags, browse, generate, websocket, thumbs, catalogs, xr
+from backend.routers import media, tags, browse, generate, websocket, thumbs, catalogs, xr, fiction
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("toxik")
@@ -53,6 +53,7 @@ app.include_router(websocket.router)
 app.include_router(thumbs.router)
 app.include_router(catalogs.router)
 app.include_router(xr.router)
+app.include_router(fiction.router)
 
 @app.get("/api/health")
 async def health_check():

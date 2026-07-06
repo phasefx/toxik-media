@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     comfyui_workflow_dir: Optional[Path] = None
     comfyui_output_dir: Optional[Path] = None
     auto_unload: bool = True
+    public_url: str = "http://localhost:8000"
+    parchment_url: str = "http://localhost:8080"
 
     class Config:
         env_prefix = "TOXIK_"
@@ -128,6 +130,7 @@ class Settings(BaseSettings):
             exempted_dirs = [
                 (self.data_dir / "comfyui_outputs").resolve(),
                 (self.data_dir / "comfyui_output").resolve(),
+                (self.data_dir / "extracted").resolve(),
             ]
             if self.comfyui_output_dir:
                 exempted_dirs.append(Path(self.comfyui_output_dir).resolve())

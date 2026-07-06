@@ -53,7 +53,7 @@ ROM_EXTS = {
 }
 IF_EXTS = {
     ".z1", ".z2", ".z3", ".z4", ".z5", ".z6", ".z7", ".z8",
-    ".zblorb", ".blorb",
+    ".zblorb", ".blorb", ".gblorb", ".blb",
     ".ulx",
     ".gam", ".t3",
     ".ink",
@@ -171,27 +171,79 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
     file_specific_tags = {}
     from backend.config import settings
 
-    for p in paths:
-        path = Path(p).resolve()
-        if settings.is_protected_from_ingest(path):
-            logger.info(f"[Ingest] Skipping target inside protected data directory: {path}")
-            continue
+    ALL_EXTS = IMAGE_EXTS | VIDEO_EXTS | AUDIO_EXTS | DOC_EXTS | IF_EXTS | ROM_EXTS
+    processed_zips = set()
 
-        if path.is_file():
-            if path.suffix.lower() in IMAGE_EXTS or path.suffix.lower() in VIDEO_EXTS or path.suffix.lower() in AUDIO_EXTS or path.suffix.lower() in DOC_EXTS:
-                fp = str(path)
+    # Helper function to extract zip
+    def extract_zip(zip_path: Path, extract_to: Path):
+        import zipfile
+        extract_to.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            for member in zip_ref.infolist():
+                filename = member.filename
+                if member.is_dir() or filename.startswith('__MACOSX') or '/__MACOSX' in filename or filename.split('/')[-1].startswith('._'):
+                    continue
+                target_path = extract_to / filename
+                try:
+                    target_path = target_path.resolve()
+                    if not target_path.is_relative_to(extract_to.resolve()):
+                        continue
+                except Exception:
+                    continue
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                with zip_ref.open(member) as source, open(target_path, 'wb') as target:
+                    target.write(source.read())
+
+    paths_to_process = [Path(p).resolve() for p in paths]
+
+    while paths_to_process:
+        current_path = paths_to_process.pop(0)
+
+        if settings.is_protected_from_ingest(current_path):
+            # Allow settings.data_dir / "extracted" through
+            if not current_path.is_relative_to((settings.data_dir / "extracted").resolve()):
+                logger.info(f"[Ingest] Skipping target inside protected data directory: {current_path}")
+                continue
+
+        if current_path.is_file():
+            ext = current_path.suffix.lower()
+            if ext == ".zip":
+                if current_path not in processed_zips:
+                    processed_zips.add(current_path)
+                    try:
+                        zip_hash = compute_file_hash(str(current_path))
+                        extracted_dir = settings.data_dir / "extracted" / f"{current_path.stem}_{zip_hash[:10]}"
+                        logger.info(f"[Ingest] Peeking inside archive file: {current_path} -> {extracted_dir}")
+                        extract_zip(current_path, extracted_dir)
+                        paths_to_process.append(extracted_dir)
+                    except Exception as e:
+                        logger.error(f"[Ingest] Failed to extract zip {current_path}: {e}")
+            elif ext in ALL_EXTS or current_path.name.lower().endswith(INK_JSON_SUFFIX):
+                fp = str(current_path)
                 if fp not in seen_paths:
                     seen_paths.add(fp)
                     files_to_import.append(fp)
-        elif path.is_dir():
-            for root, dirs, files in os.walk(path):
-                dirs[:] = [d for d in dirs if not settings.is_protected_from_ingest(Path(root, d))]
+        elif current_path.is_dir():
+            for root, dirs, files in os.walk(current_path):
+                dirs[:] = [d for d in dirs if not settings.is_protected_from_ingest(Path(root, d)) or Path(root, d).is_relative_to((settings.data_dir / "extracted").resolve())]
                 for file in files:
                     fpath = Path(root, file).resolve()
                     if settings.is_protected_from_ingest(fpath):
-                        continue
+                        if not fpath.is_relative_to((settings.data_dir / "extracted").resolve()):
+                            continue
                     ext = fpath.suffix.lower()
-                    if ext in IMAGE_EXTS or ext in VIDEO_EXTS or ext in AUDIO_EXTS or ext in DOC_EXTS:
+                    if ext == ".zip":
+                        if fpath not in processed_zips:
+                            processed_zips.add(fpath)
+                            try:
+                                zip_hash = compute_file_hash(str(fpath))
+                                extracted_dir = settings.data_dir / "extracted" / f"{fpath.stem}_{zip_hash[:10]}"
+                                logger.info(f"[Ingest] Peeking inside archive file: {fpath} -> {extracted_dir}")
+                                extract_zip(fpath, extracted_dir)
+                                paths_to_process.append(extracted_dir)
+                            except Exception as e:
+                                logger.error(f"[Ingest] Failed to extract zip {fpath}: {e}")
+                    elif ext in ALL_EXTS or fpath.name.lower().endswith(INK_JSON_SUFFIX):
                         fp = str(fpath)
                         if fp not in seen_paths:
                             seen_paths.add(fp)
@@ -285,7 +337,7 @@ async def import_media(db: aiosqlite.Connection, paths: List[str], tags: List[st
             mime_type = f"audio/{ext[1:]}"
         elif low_path.endswith(INK_JSON_SUFFIX) or ext in IF_EXTS:
             media_type = "fiction"
-            mime_type = "application/x-fiction"
+            mime_type = "application/octet-stream"
         elif ext in ROM_EXTS:
             media_type = "game"
             mime_type = "application/x-rom"

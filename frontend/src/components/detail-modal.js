@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import ePub from 'epubjs';
 import hljs from 'highlight.js/lib/common';
 import 'highlight.js/styles/atom-one-dark.css';
+import { Story } from 'inkjs';
 
 export class DetailModal {
     constructor(container) {
@@ -261,6 +262,48 @@ export class DetailModal {
                       <audio src="${mediaUrl}" controls autoplay ${store.get('playlist')?.isPlaying ? '' : 'loop'} style="width: 80%; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); border-radius: 30px;"></audio>
                     </div>
                   </div>
+                ` : isFiction ? `
+                  <div style="width: 100%; height: 100%; display: flex; flex-direction: column; background: #111; position: relative;">
+                    ${['Z-machine', 'Glulx', 'Blorb', 'TADS', 'TADS 3'].includes(this._ifFormat(item)) ? `
+                      <div style="padding: 10px 16px; background: #1a1a1a; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; z-index: 10;">
+                        <span style="color: var(--accent-cyan); font-weight: 700; font-size: 0.85rem;">📖 Embedded Parchment Player (${this._ifFormat(item)})</span>
+                        <a id="parchment-fulltab-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="font-size: 0.75rem; padding: 4px 10px; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                          ↗️ Open in Full Tab
+                        </a>
+                      </div>
+                      <div id="parchment-loading" style="width: 100%; flex: 1; background: #000; display: flex; align-items: center; justify-content: center;">
+                        <div style="color: var(--text-muted); font-family: system-ui, sans-serif; font-size: 0.9rem;">⌛ Connecting to Parchment player...</div>
+                      </div>
+                      <iframe id="parchment-iframe" data-media-id="${item.id}" style="width: 100%; flex: 1; border: none; background: #000; display: none;" allow="fullscreen"></iframe>
+                    ` : this._ifFormat(item) === 'Ink' && item.filename && item.filename.toLowerCase().endsWith('.ink.json') ? `
+                      <div style="padding: 10px 16px; background: #1a1a1a; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; z-index: 10;">
+                        <span style="color: var(--accent-cyan); font-weight: 700; font-size: 0.85rem;">📝 Ink Story Player</span>
+                        <div style="display: flex; gap: 6px;">
+                          <button id="btn-ink-restart" class="btn" style="font-size: 0.75rem; padding: 4px 10px; background: rgba(255,255,255,0.1); border: 1px solid var(--border-color); color: #fff; cursor: pointer;">↺ Restart</button>
+                          <button id="btn-ink-undo" class="btn" style="font-size: 0.75rem; padding: 4px 10px; background: rgba(255,255,255,0.1); border: 1px solid var(--border-color); color: #fff; cursor: pointer;">↩ Undo</button>
+                        </div>
+                      </div>
+                      <div id="ink-story-container" style="width: 100%; flex: 1; overflow-y: auto; padding: 24px 32px; background: #0a0a12; font-family: 'Georgia', serif; color: #e0e0e0; line-height: 1.7; font-size: 1.05rem;">
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-family: system-ui, sans-serif;">
+                          <span>⌛ Loading story...</span>
+                        </div>
+                      </div>
+                    ` : `
+                      <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); padding: 32px; text-align: center;">
+                        <div style="font-size: 6rem; margin-bottom: 24px; animation: pulseGlow 2s infinite;">📖</div>
+                        <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 12px; word-break: break-all;">${item.filename}</h2>
+                        <p style="color: var(--text-secondary); max-width: 500px; margin-bottom: 24px;">This interactive fiction game is in the <strong>${this._ifFormat(item)}</strong> format, which is not supported by the in-browser player. You can download and run it locally with a compatible interpreter (such as Lectrote or Gargoyle).</p>
+                        <a href="${mediaUrl}" download="${item.filename}" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; text-decoration: none;">⬇️ Download Story File</a>
+                      </div>
+                    `}
+                  </div>
+                ` : isGame ? `
+                  <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); padding: 32px; text-align: center;">
+                    <div style="font-size: 6rem; margin-bottom: 24px; animation: pulseGlow 2s infinite;">🎮</div>
+                    <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 12px; word-break: break-all;">${item.filename}</h2>
+                    <p style="color: var(--text-secondary); max-width: 500px; margin-bottom: 24px;">ROM detected (${this._romSystem(item)}). In-browser emulator coming soon.</p>
+                    <a href="${mediaUrl}" download="${item.filename}" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; text-decoration: none;">⬇️ Download ROM File</a>
+                  </div>
                 ` : `
                   <img src="${mediaUrl}" alt="${item.filename}" style="max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: ${stretchFit};" />
                 `}
@@ -478,7 +521,11 @@ export class DetailModal {
                   ${this.expandedSections.has('if') ? `
                     <div style="padding: 0 16px 14px 16px; display: flex; flex-direction: column; gap: 10px;">
                       <div id="if-info" style="font-size: 0.8rem; color: var(--text-secondary); padding: 8px 0;">
-                        ${this._isInteractiveFiction(item) ? `Story detected (${this._ifFormat(item)}). In-browser player coming soon.` : 'Not an interactive fiction file.'}
+                        ${this._isInteractiveFiction(item) ? `
+                          <div style="margin-bottom: 8px;"><strong>Format:</strong> ${this._ifFormat(item)}</div>
+                          <div style="margin-bottom: 8px;"><strong>Player:</strong> ${this._ifFormat(item) === 'Ink' ? 'InkJS (in-browser)' : ['Z-machine', 'Glulx', 'Blorb', 'TADS', 'TADS 3'].includes(this._ifFormat(item)) ? 'Parchment (in-browser)' : '⚠️ Download only'}</div>
+                          ${this._ifFormat(item) === 'Ink' ? '<div style="margin-top: 8px; font-style: italic; color: var(--text-muted);">Click choices below to progress the story. Use Undo to go back, Restart to begin again.</div>' : ''}
+                        ` : 'Not an interactive fiction file.'}
                       </div>
                     </div>
                   ` : ''}
@@ -659,6 +706,15 @@ export class DetailModal {
                         if (docEl) docEl.innerHTML = `<div style="color:#ff4444; padding: 40px;">Failed to load document: ${err.message}</div>`;
                     });
                 }
+            }
+        }
+
+        if (isFiction) {
+            const fmt = this._ifFormat(item);
+            if (fmt === 'Ink' && item.filename && item.filename.toLowerCase().endsWith('.ink.json')) {
+                this._initInkPlayer(item);
+            } else if (['Z-machine', 'Glulx', 'Blorb', 'TADS', 'TADS 3'].includes(fmt)) {
+                this._initParchmentPlayer(item);
             }
         }
 
@@ -905,6 +961,27 @@ export class DetailModal {
             this._loadTranscodeFormats(item);
         }
 
+        const inkRestart = this.container.querySelector('#btn-ink-restart');
+        if (inkRestart) {
+            inkRestart.addEventListener('click', () => {
+                if (this._inkStory) {
+                    this._inkStoryInitialText = null;
+                    this._initInkPlayer(item, true);
+                }
+            });
+        }
+
+        const inkUndo = this.container.querySelector('#btn-ink-undo');
+        if (inkUndo) {
+            inkUndo.addEventListener('click', () => {
+                if (this._inkSnapshots && this._inkSnapshots.length > 0) {
+                    const prev = this._inkSnapshots.pop();
+                    this._inkStory.state.LoadJson(prev);
+                    this._renderInkOutput(true);
+                }
+            });
+        }
+
         const stereoBtn = this.container.querySelector('#btn-stereogram');
         if (stereoBtn) {
             stereoBtn.addEventListener('click', () => {
@@ -1014,7 +1091,7 @@ export class DetailModal {
         if (!item || !item.filename) return false;
         const low = item.filename.toLowerCase();
         if (low.endsWith('.ink.json')) return true;
-        const ifExts = new Set(['.z1','.z2','.z3','.z4','.z5','.z6','.z7','.z8','.zblorb','.blorb','.gblorb','.ulx','.gam','.t3','.ink']);
+        const ifExts = new Set(['.z1','.z2','.z3','.z4','.z5','.z6','.z7','.z8','.zblorb','.blorb','.gblorb','.blb','.ulx','.gam','.t3','.ink']);
         const ext = low.slice(low.lastIndexOf('.'));
         return ifExts.has(ext);
     }
@@ -1024,7 +1101,129 @@ export class DetailModal {
         const low = item.filename.toLowerCase();
         if (low.endsWith('.ink.json')) return 'Ink';
         const ext = low.slice(low.lastIndexOf('.'));
-        const map = { '.z3':'Z-machine','.z5':'Z-machine','.z8':'Z-machine','.zblorb':'Z-machine','.gblorb':'Glulx','.ulx':'Glulx','.gam':'TADS','.t3':'TADS 3','.ink':'Ink' };
+        const map = {
+            '.z1':'Z-machine',
+            '.z2':'Z-machine',
+            '.z3':'Z-machine',
+            '.z4':'Z-machine',
+            '.z5':'Z-machine',
+            '.z6':'Z-machine',
+            '.z7':'Z-machine',
+            '.z8':'Z-machine',
+            '.zblorb':'Z-machine',
+            '.blorb':'Blorb',
+            '.gblorb':'Glulx',
+            '.blb':'Blorb',
+            '.ulx':'Glulx',
+            '.gam':'TADS',
+            '.t3':'TADS 3',
+            '.ink':'Ink'
+        };
         return map[ext] || 'Unknown';
+    }
+
+    async _initParchmentPlayer(item) {
+        const iframe = this.container.querySelector('#parchment-iframe');
+        const loading = this.container.querySelector('#parchment-loading');
+        const link = this.container.querySelector('#parchment-fulltab-link');
+        if (!iframe || !loading) return;
+        try {
+            const res = await fetch(`/api/fiction/${item.id}`);
+            const data = await res.json();
+            if (data.parchment_url) {
+                iframe.src = data.parchment_url;
+                loading.style.display = 'none';
+                iframe.style.display = '';
+                if (link) link.href = data.parchment_url;
+            } else {
+                loading.innerHTML = '<span style="color: #ff6b6b;">Failed to get player URL.</span>';
+            }
+        } catch (err) {
+            loading.innerHTML = `<span style="color: #ff6b6b;">Failed to connect: ${err.message}</span>`;
+        }
+    }
+
+    async _initInkPlayer(item, forceRestart) {
+        const container = this.container.querySelector('#ink-story-container');
+        if (!container) return;
+
+        if (!forceRestart && this._inkStory) {
+            this._renderInkOutput();
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/fiction/${item.id}`);
+            const data = await res.json();
+            if (!data.story_json) {
+                container.innerHTML = '<div style="color: #ff6b6b; padding: 20px; text-align: center;">Failed to load Ink story content.</div>';
+                return;
+            }
+            this._inkStory = new Story(data.story_json);
+            this._inkSnapshots = [];
+            this._inkChoiceHistory = [];
+            this._renderInkOutput();
+        } catch (err) {
+            container.innerHTML = `<div style="color: #ff6b6b; padding: 20px; text-align: center;">Failed to load Ink story: ${err.message}</div>`;
+        }
+    }
+
+    _renderInkOutput(keepScrolled) {
+        const container = this.container.querySelector('#ink-story-container');
+        if (!container || !this._inkStory) return;
+
+        const story = this._inkStory;
+        const scrollWasAtBottom = keepScrolled || (container.scrollHeight - container.scrollTop < 60);
+
+        let output = '';
+
+        while (story.canContinue) {
+            const text = story.Continue();
+            if (text.trim()) {
+                const lines = text.split('\n');
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed) continue;
+                    if (trimmed.startsWith('&')) continue;
+                    output += `<div style="margin-bottom: 8px;">${this._escapeHtml(trimmed)}</div>`;
+                }
+            }
+        }
+
+        if (story.currentChoices && story.currentChoices.length > 0) {
+            output += '<div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">';
+            for (const choice of story.currentChoices) {
+                output += `<button class="ink-choice-btn" data-index="${choice.index}" style="display: block; width: 100%; text-align: left; padding: 10px 16px; margin-bottom: 8px; background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); color: #00f0ff; border-radius: 6px; cursor: pointer; font-family: 'Georgia', serif; font-size: 1rem; transition: all 0.15s ease;">${this._escapeHtml(choice.text)}</button>`;
+            }
+            output += '</div>';
+        }
+
+        if (!story.canContinue && story.currentChoices.length === 0) {
+            output += '<div style="margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--accent-cyan); text-align: center; color: var(--text-muted); font-family: system-ui, sans-serif; font-size: 0.9rem;">— The End —</div>';
+        }
+
+        container.innerHTML = output;
+
+        container.querySelectorAll('.ink-choice-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.getAttribute('data-index'), 10);
+                if (this._inkStory) {
+                    this._inkSnapshots.push(this._inkStory.state.ToJson());
+                    this._inkStory.ChooseChoiceIndex(idx);
+                    this._renderInkOutput();
+                }
+            });
+        });
+
+        if (scrollWasAtBottom || !this._inkHasScrolled) {
+            container.scrollTop = container.scrollHeight;
+            this._inkHasScrolled = true;
+        }
+    }
+
+    _escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 }
